@@ -50,11 +50,24 @@ class DatabaseSchemaIT {
                 Integer.class);
         assertThat(uniqueCount).isEqualTo(3);
 
+        String[] requiredForeignKeys = {
+                "fk_bookings_customer",
+                "fk_booking_items_booking",
+                "fk_booking_items_category",
+                "fk_payments_booking",
+                "fk_tickets_booking",
+                "fk_tickets_booking_item",
+                "fk_entry_scans_ticket"
+        };
+
         Integer foreignKeyCount = jdbcTemplate.queryForObject(
                 "select count(*) from information_schema.table_constraints " +
-                        "where table_schema = database() and constraint_type = 'FOREIGN KEY'",
+                        "where table_schema = database() and constraint_type = 'FOREIGN KEY' " +
+                        "and constraint_name in ('fk_bookings_customer','fk_booking_items_booking'," +
+                        "'fk_booking_items_category','fk_payments_booking','fk_tickets_booking'," +
+                        "'fk_tickets_booking_item','fk_entry_scans_ticket')",
                 Integer.class);
-        assertThat(foreignKeyCount).isGreaterThanOrEqualTo(8);
+        assertThat(foreignKeyCount).isEqualTo(requiredForeignKeys.length);
 
         Integer inventoryChecks = jdbcTemplate.queryForObject(
                 "select count(*) from information_schema.check_constraints " +
