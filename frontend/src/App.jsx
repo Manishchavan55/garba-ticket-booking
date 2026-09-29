@@ -1,33 +1,39 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
-});
+import Navbar from './components/Navbar/Navbar.jsx';
+import Hero from './components/Hero/Hero.jsx';
+import EventInfo from './components/EventInfo/EventInfo.jsx';
+import Highlights from './components/Highlights/Highlights.jsx';
+import TicketCards from './components/TicketCards/TicketCards.jsx';
+import Footer from './components/Footer/Footer.jsx';
+import { getHealth } from './services/api.js';
+import './styles.css';
 
 function App() {
-  const [backendStatus, setBackendStatus] = useState('Checking backend...');
+  const [backendStatus, setBackendStatus] = useState('checking');
 
   useEffect(() => {
-    api.get('/api/health')
-      .then((response) => {
-        setBackendStatus(response.data.status + ' — ' + response.data.service);
-      })
-      .catch(() => setBackendStatus('Backend unavailable'));
+    let active = true;
+
+    getHealth()
+      .then(() => active && setBackendStatus('online'))
+      .catch(() => active && setBackendStatus('offline'));
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (
-    <main className="page">
-      <section className="card">
-        <p className="eyebrow">Garba Ticket Booking</p>
-        <h1>Project setup complete</h1>
-        <p>Module 1 establishes the Spring Boot API and React frontend.</p>
-        <div className="status">
-          <span>Backend:</span>
-          <strong>{backendStatus}</strong>
-        </div>
-      </section>
-    </main>
+    <div className="site-shell">
+      <Navbar />
+      <main>
+        <Hero />
+        <EventInfo backendStatus={backendStatus} />
+        <Highlights />
+        <TicketCards />
+      </main>
+      <Footer />
+    </div>
   );
 }
 
