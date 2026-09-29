@@ -7,8 +7,9 @@ import com.garba.ticketbooking.repository.AdminRepository;
 import com.garba.ticketbooking.security.JwtService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationServiceException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,7 +37,7 @@ public class AdminAuthenticationService {
         try {
             authentication = authenticationManager.authenticate(
                     UsernamePasswordAuthenticationToken.unauthenticated(request.username().trim(), request.password()));
-        } catch (RuntimeException ex) {
+        } catch (AuthenticationException ex) {
             throw new AuthenticationServiceException(GENERIC_AUTHENTICATION_FAILURE);
         }
 
