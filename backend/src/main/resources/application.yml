@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: garba-ticket-booking-backend
+
+server:
+  port: 8081
