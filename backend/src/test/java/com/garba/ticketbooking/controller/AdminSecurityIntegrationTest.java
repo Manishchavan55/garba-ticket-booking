@@ -2,6 +2,7 @@ package com.garba.ticketbooking.controller;
 
 import com.garba.ticketbooking.dto.AuthResponse;
 import com.garba.ticketbooking.dto.LoginRequest;
+import com.garba.ticketbooking.exception.GlobalExceptionHandler;
 import com.garba.ticketbooking.security.AdminUserDetailsService;
 import com.garba.ticketbooking.service.AdminAuthenticationService;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -16,11 +18,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = {AdminController.class, AuthController.class})
-@Import(com.garba.ticketbooking.security.SecurityConfig.class)
+@Import({com.garba.ticketbooking.security.SecurityConfig.class, GlobalExceptionHandler.class})
 @TestPropertySource(properties = "app.security.jwt.secret=test-secret-with-at-least-32-characters-long")
 class AdminSecurityIntegrationTest {
     @Autowired MockMvc mockMvc;
@@ -52,7 +55,7 @@ class AdminSecurityIntegrationTest {
     void authenticatedNonAdminRoleGets403() throws Exception {
         mockMvc.perform(get("/api/admin/me")
                         .with(jwt().jwt(jwt -> jwt
-                                .subject("scanner@example.com")
+                                .subject("unknown@example.com")
                                 .claim("adminId", 7L)
                                 .claim("role", "NOT_A_ROLE"))))
                 .andExpect(status().isForbidden());
@@ -72,6 +75,28 @@ class AdminSecurityIntegrationTest {
                 .andExpect(jsonPath("$.expiresIn").value(3600))
                 .andExpect(jsonPath("$.password").doesNotExist())
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
+    }
+
+    @Test
+    void invalidCredentialsUseGeneric401Response() throws Exception {
+        when(authenticationService.login(new LoginRequest("admin@example.com", "wrong")))
+                .thenThrow(new AuthenticationServiceException("Authentication failed"));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"admin@example.com\",\"password\":\"wrong\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("Authentication failed"));
+    }
+
+    @Test
+    void corsAllowsConfiguredReactOrigin() throws Exception {
+        mockMvc.perform(options("/api/admin/me")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"));
     }
 
     @Test
