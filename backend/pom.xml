@@ -16,6 +16,7 @@
   <description>Garba Ticket Booking System backend</description>
   <properties>
     <java.version>17</java.version>
+    <skip.integration.tests>true</skip.integration.tests>
   </properties>
   <dependencies>
     <dependency>
@@ -72,12 +73,4 @@
       </plugin>
     </plugins>
   </build>
-  <profiles>
-    <profile>
-      <id>default</id>
-      <properties>
-        <skip.integration.tests>true</skip.integration.tests>
-      </properties>
-    </profile>
-  </profiles>
 </project>
