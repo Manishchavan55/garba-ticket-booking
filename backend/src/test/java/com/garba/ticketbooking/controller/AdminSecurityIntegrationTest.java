@@ -2,9 +2,6 @@ package com.garba.ticketbooking.controller;
 
 import com.garba.ticketbooking.dto.AuthResponse;
 import com.garba.ticketbooking.dto.LoginRequest;
-import com.garba.ticketbooking.entity.Admin;
-import com.garba.ticketbooking.entity.enums.AdminRole;
-import com.garba.ticketbooking.security.AdminPrincipal;
 import com.garba.ticketbooking.security.AdminUserDetailsService;
 import com.garba.ticketbooking.service.AdminAuthenticationService;
 import org.junit.jupiter.api.Test;
@@ -12,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -81,7 +77,7 @@ class AdminSecurityIntegrationTest {
     @Test
     void logoutRequiresAuthenticationAndReturns204() throws Exception {
         mockMvc.perform(post("/api/auth/logout")
-                        .with(jwt().jwt(Jwt::getHeaders)))
+                        .with(jwt().jwt(jwt -> jwt.subject("admin@example.com").claim("role", "ADMIN"))))
                 .andExpect(status().isNoContent());
     }
 }
