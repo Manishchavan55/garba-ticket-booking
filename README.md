@@ -27,6 +27,35 @@ Module 2 establishes the MySQL database foundation, Flyway schema migration, and
 
 Flyway owns schema evolution and Hibernate is configured with `ddl-auto=validate`; Hibernate must not create or modify the production schema.
 
+## Module 3 — Admin Authentication
+
+Module 3 uses stateless JWT bearer authentication for the REST API.
+
+- `POST /api/auth/login` — public admin login
+- `POST /api/auth/logout` — authenticated client-side logout acknowledgement; a stateless JWT is not server-side revoked by this endpoint
+- `GET /api/admin/me` — protected admin endpoint
+- `/api/admin/**` requires an authenticated admin role
+- Admin roles are the existing `SUPER_ADMIN`, `ADMIN`, `EVENT_MANAGER`, and `SCANNER` values
+- Passwords are hashed with BCrypt and stored in `admins.password_hash`
+- JWTs use HS256, require a secret of at least 32 UTF-8 bytes, and contain only issuer, subject, admin id, role, issued-at, and expiry claims
+- JWT secrets, database credentials, and other secrets are environment configuration only
+
+### Authentication configuration
+
+```text
+JWT_SECRET=<long random secret of at least 32 bytes>
+JWT_EXPIRATION=3600
+CORS_ALLOWED_ORIGINS=http://localhost:5173
+```
+
+The template is `backend/.env.example`. The file is documentation; Spring Boot reads environment variables directly.
+
+### Secure initial admin creation
+
+Module 3 does not seed a production admin and does not provide default credentials. Create the first admin through a controlled administrative/database bootstrap process using a BCrypt hash generated from a securely chosen password. Never insert a plaintext password and never commit the resulting credential to GitHub.
+
+The existing `admins` schema already provides `email`, `password_hash`, `role`, `active`, and audit timestamps, so no schema migration is required for authentication.
+
 ## Prerequisites
 
 - Java 17+
@@ -86,7 +115,7 @@ Start the backend:
 mvn spring-boot:run
 ```
 
-On first startup, Flyway applies `V1__initial_schema.sql`. Future schema changes must use a new immutable migration such as `V2__...sql` rather than editing an applied migration.
+Flyway applies versioned migrations automatically. Future schema changes must use a new immutable migration rather than editing an applied migration.
 
 ## Frontend
 
@@ -120,4 +149,6 @@ Never commit passwords, API keys, payment secrets, JWT secrets, database passwor
 
 ## Verification status
 
-Module 2 implementation is committed to its feature branch but local MySQL/Flyway/JPA execution is **NOT VERIFIED — requires local execution**.
+Module 2 was locally verified by running the MySQL-backed Maven verification successfully.
+
+Module 3 implementation is **NOT VERIFIED — requires local execution**.
