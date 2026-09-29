@@ -41,7 +41,7 @@ class JwtServiceTest {
         Jwt decoded = decoder.decode(token.getTokenValue());
 
         assertThat(decoded.getSubject()).isEqualTo("admin@example.com");
-        assertThat(decoded.getClaimAsLong("adminId")).isEqualTo(42L);
+        assertThat(decoded.<Long>getClaim("adminId")).isEqualTo(42L);
         assertThat(decoded.getClaimAsString("role")).isEqualTo("ADMIN");
         assertThat(decoded.getClaims()).doesNotContainKey("password");
         assertThat(decoded.getClaims()).doesNotContainKey("passwordHash");
