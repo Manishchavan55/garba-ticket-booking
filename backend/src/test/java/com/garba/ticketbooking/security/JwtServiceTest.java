@@ -19,6 +19,8 @@ import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class JwtServiceTest {
     private static final String SECRET = "test-secret-with-at-least-32-characters-long";
@@ -27,10 +29,11 @@ class JwtServiceTest {
     void tokenContainsOnlyRequiredNonSensitiveClaimsAndValidSignature() {
         SecretKeySpec key = new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
         JwtService service = new JwtService(NimbusJwtEncoder.withSecretKey(key).build(), 3600);
-        Admin admin = new Admin();
-        admin.setEmail("admin@example.com");
-        admin.setPasswordHash("never-in-token");
-        admin.setRole(AdminRole.ADMIN);
+        Admin admin = mock(Admin.class);
+        when(admin.getId()).thenReturn(42L);
+        when(admin.getEmail()).thenReturn("admin@example.com");
+        when(admin.getRole()).thenReturn(AdminRole.ADMIN);
+        when(admin.getPasswordHash()).thenReturn("never-in-token");
 
         Jwt token = service.issueToken(admin);
 
@@ -38,7 +41,7 @@ class JwtServiceTest {
         Jwt decoded = decoder.decode(token.getTokenValue());
 
         assertThat(decoded.getSubject()).isEqualTo("admin@example.com");
-        assertThat(decoded.getClaimAsLong("adminId")).isEqualTo(admin.getId());
+        assertThat(decoded.getClaimAsLong("adminId")).isEqualTo(42L);
         assertThat(decoded.getClaimAsString("role")).isEqualTo("ADMIN");
         assertThat(decoded.getClaims()).doesNotContainKey("password");
         assertThat(decoded.getClaims()).doesNotContainKey("passwordHash");
@@ -78,7 +81,6 @@ class JwtServiceTest {
 
     @Test
     void shortSecretIsRejected() {
-        SecretKeySpec key = new SecretKeySpec("short".getBytes(StandardCharsets.UTF_8), "HmacSHA256");
         SecurityConfig config = new SecurityConfig();
 
         assertThatThrownBy(() -> config.jwtSecretKey("short"))
