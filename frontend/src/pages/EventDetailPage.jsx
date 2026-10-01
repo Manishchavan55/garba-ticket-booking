@@ -153,8 +153,8 @@ export default function EventDetailPage() {
           <div className="booking-placeholder">
             <p className="eyebrow">Booking</p>
             <h2 id="booking-title">Book Tickets</h2>
-            <p>Online booking will be enabled in a later phase. No booking or payment is processed from this page.</p>
-            <button className="button button--disabled" type="button" disabled aria-disabled="true">Booking coming soon</button>
+            <p>Enter your details to create a booking. Payment is a separate later phase.</p>
+            <Link className="button" to={`/events/${id}/book`}>Continue to booking</Link>
           </div>
         </section>
       </main>
