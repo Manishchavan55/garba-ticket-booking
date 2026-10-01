@@ -81,9 +81,7 @@ describe('Payment service', () => {
   });
 
   it('rejects a nonexistent booking', async () => {
-    const connection = makeConnection([
-      [[]],
-    ]);
+    const connection = makeConnection([[]]);
     const provider = mockProvider();
     runTransactionMocks([connection]);
 
@@ -120,7 +118,7 @@ describe('Payment service', () => {
       booking_amount: '499.00',
       booking_currency: 'INR',
     };
-    const connection = makeConnection([[context]]);
+    const connection = makeConnection([[context], [context]]);
     const provider = mockProvider({
       verifyPayment: vi.fn().mockResolvedValue({
         provider: 'test-provider',
@@ -130,7 +128,7 @@ describe('Payment service', () => {
         status: 'successful',
       }),
     });
-    runTransactionMocks([connection]);
+    runTransactionMocks([connection, connection]);
 
     await expect(verifyPayment(pendingBooking.booking_id, { providerData: 'opaque' }, provider))
       .rejects.toMatchObject({ statusCode: 409, code: 'PAYMENT_AMOUNT_MISMATCH' });
@@ -151,7 +149,7 @@ describe('Payment service', () => {
       booking_amount: '499.00',
       booking_currency: 'INR',
     };
-    const connection = makeConnection([[context]]);
+    const connection = makeConnection([[context], [context]]);
     const provider = mockProvider({
       verifyPayment: vi.fn().mockResolvedValue({
         provider: 'test-provider',
@@ -161,7 +159,7 @@ describe('Payment service', () => {
         status: 'successful',
       }),
     });
-    runTransactionMocks([connection]);
+    runTransactionMocks([connection, connection]);
 
     await expect(verifyPayment(pendingBooking.booking_id, { providerData: 'opaque' }, provider))
       .rejects.toMatchObject({ statusCode: 409, code: 'PAYMENT_CURRENCY_MISMATCH' });
