@@ -139,43 +139,25 @@ Required header:
 Idempotency-Key: <client-generated unique key>
 ```
 
-The backend:
+The backend locks and loads the booking, requires `pending`, loads amount/currency from MySQL, creates or reuses a pending payment record, delegates checkout creation to the configured provider abstraction, and never marks the booking paid during checkout creation.
 
-1. locks and loads the booking by its public booking ID
-2. requires the booking to remain in `pending`
-3. loads amount/currency from MySQL
-4. creates or reuses a pending payment record
-5. delegates checkout creation to the configured provider abstraction
-6. never marks the booking paid during checkout creation
-
-A configured provider may return a checkout URL/reference. Until a production provider is selected, this endpoint returns a sanitized `503 PAYMENT_PROVIDER_NOT_CONFIGURED` response after the pending payment boundary has been established.
+Until a production provider is selected, this endpoint returns sanitized `503 PAYMENT_PROVIDER_NOT_CONFIGURED` after the payment boundary is established.
 
 ### `POST /payments/verify`
 
-Backend verification boundary. The request identifies the booking and carries provider data, but a browser-supplied status such as `{"status":"paid"}` is never sufficient.
+Backend verification boundary. A browser-supplied status such as `{"status":"paid"}` is never sufficient.
 
-The configured provider implementation must authenticate/verify the provider result and normalize it before the service will:
+A configured provider must authenticate/verify the provider result and normalize it before the service compares amount/currency, verifies the transaction reference, updates payment state, confirms the booking, and issues QR tickets.
 
-- compare amount against the authoritative booking amount
-- compare currency against the authoritative booking currency
-- verify the provider transaction reference
-- update the payment state
-- transition the booking from `pending` to `confirmed`
-- issue the booking's QR tickets exactly once
-
-A successful verification response includes the issued ticket records and backend-generated QR image data. No production provider is configured yet, so this endpoint currently returns `503 PAYMENT_PROVIDER_NOT_CONFIGURED`.
+No production provider is configured yet, so this endpoint currently returns `503 PAYMENT_PROVIDER_NOT_CONFIGURED`.
 
 ### `POST /payments/webhook`
 
 Generic provider webhook boundary. Provider-specific signature/authentication is intentionally not invented before provider selection. The configured provider implementation owns webhook authenticity verification and event normalization.
 
-A verified successful webhook uses the same payment-confirmation transaction boundary and ticket issuance service as direct verification. Duplicate callbacks reuse existing ticket records.
-
 No production provider is configured yet, so this endpoint currently returns `503 PAYMENT_PROVIDER_NOT_CONFIGURED`.
 
 ## Payment state machine
-
-Payment state and booking state are separate:
 
 ```text
 Payment:
@@ -189,60 +171,20 @@ Booking:
                                 ticket issuance
 ```
 
-A failed payment never confirms the booking and never issues tickets. A successful payment is recorded only after trusted provider verification. Repeated successful verification is handled idempotently and reuses the same QR-ticket records.
-
-Payment amount and currency are always compared against the authoritative booking/payment data loaded from MySQL. Browser totals, client status values, and redirect URLs are not authoritative.
+A failed payment never confirms the booking and never issues tickets. Repeated successful verification is idempotent.
 
 ## Ticket issuance and QR tickets
 
-Ticket issuance is a domain operation, not a client-created resource. The payment-success boundary invokes the ticket service inside the same transaction that confirms the booking.
-
-The issuance transaction:
-
-```text
-BEGIN
-  -> lock/read confirmed booking
-  -> verify latest payment is successful
-  -> lock existing QR tickets
-  -> compare persisted booking quantity
-  -> create only missing tickets
-  -> COMMIT
-```
-
-On failure the transaction rolls back and releases the connection.
-
-### Ticket cardinality
-
-The persisted `bookings.quantity` determines the number of QR tickets:
+Ticket issuance is a domain operation invoked by trusted payment success. The persisted `bookings.quantity` determines ticket cardinality.
 
 ```text
 quantity = 1 -> 1 QR ticket
 quantity = 3 -> 3 QR tickets
 ```
 
-The frontend cannot override this value during issuance.
-
-The existing `qr_tickets` table already supports the required one-booking-to-many-tickets relationship and has a unique `qr_identifier` constraint. No Phase 7 migration is required.
-
-### QR identifier strategy
-
-Each QR identifier is generated server-side using cryptographically secure random bytes and encoded as a URL-safe opaque identifier. It contains no customer data, passwords, payment secrets, database identifiers, or sequential ticket numbers.
-
-The QR image is rendered from only that opaque identifier. Customer/payment data is not encoded into the QR payload.
-
-The backend uses the maintained `qrcode` package for server-side PNG data-URL rendering. The QR image is generated for presentation after the transactional ticket records have been committed; the identifier itself remains the persisted source of truth.
-
-### Ticket issuance idempotency
-
-Ticket issuance does not depend on an HTTP idempotency header. It is safe when invoked internally by repeated payment verification/webhook processing.
-
-The booking row is locked before existing tickets are checked. If the persisted quantity has already been fully issued, the existing ticket records are returned and no inserts occur. If a prior transaction somehow left a partial batch, only the missing quantity is created. The database's unique QR identifier constraint remains the final uniqueness guarantee.
-
-## QR verification
+QR identifiers are generated server-side using cryptographically secure random bytes. They contain no customer data, payment secrets, database identifiers, or sequential ticket numbers. The QR image is rendered from the opaque identifier only.
 
 ### `POST /tickets/verify`
-
-Verifies and consumes one QR ticket.
 
 Request:
 
@@ -252,37 +194,9 @@ Request:
 }
 ```
 
-The identifier is validated before database access. The verification transaction then:
-
-1. locks the matching ticket row
-2. verifies that the ticket exists
-3. rejects `used` or `invalid` tickets
-4. verifies the associated booking is `confirmed`
-5. verifies the latest payment is `successful`
-6. atomically changes the ticket from `unused` to `used`
-7. records `verified_at` and `used_at`
-8. commits the entry decision
-
-A successful response is:
-
-```json
-{
-  "success": true,
-  "data": {
-    "verified": true,
-    "status": "used",
-    "bookingId": "KDN-..."
-  }
-}
-```
-
-A second verification of the same QR identifier returns `409 QR_TICKET_ALREADY_USED` and does not accept the ticket again. A nonexistent identifier returns `404 QR_TICKET_NOT_FOUND`.
-
-This phase provides the verification service/API foundation but does not add a scanning camera UI or admin authorization layer. Admin authentication and venue-scanning UI belong to later phases.
+The verification transaction locks the ticket, checks booking/payment eligibility, and atomically changes `unused` to `used`. A second verification returns `409 QR_TICKET_ALREADY_USED`.
 
 ## Provider abstraction
-
-The backend uses:
 
 ```text
 PaymentService
@@ -292,84 +206,125 @@ PaymentProvider interface
 Provider implementation
 ```
 
-The provider contract supports:
+The provider contract supports checkout creation, payment authenticity verification, webhook authenticity verification, and normalized payment status. The current `unconfigured` provider deliberately fails closed and is not a fake successful-payment implementation.
 
-- checkout creation
-- payment authenticity verification
-- webhook authenticity verification
-- normalized payment status
+## Admin authentication API
 
-The current implementation is an isolated `unconfigured` provider that deliberately fails closed. It is a configuration boundary, **not a payment gateway and not a fake successful-payment implementation**.
+Phase 8 uses a server-side opaque session stored in MySQL. The browser receives only an HttpOnly cookie; the database stores a SHA-256 hash of the random session token. Session lifetime defaults to eight hours and is configurable with `ADMIN_SESSION_TTL_HOURS`.
 
-Provider-specific signatures, credentials, API fields, checkout behavior, and webhook payloads remain pending production provider selection.
+### `POST /admin/auth/login`
 
-## Payment idempotency and atomicity
+Requires a configured frontend `Origin` header and accepts:
 
-Payment initiation uses the existing `payments.idempotency_key` unique constraint. Provider transaction references use the existing unique `(provider, gateway_transaction_reference)` constraint.
+```json
+{
+  "identifier": "admin@example.com",
+  "password": "<admin-password>"
+}
+```
 
-Payment confirmation uses the existing transaction helper and locks the relevant payment/booking rows before state changes. The payment update, booking confirmation, and successful-payment ticket issuance commit together or roll back together.
+The identifier can be the administrator username or email. Passwords are verified against scrypt hashes in `admin_users`.
 
-Duplicate provider events and repeated verification do not create another payment or another QR-ticket batch.
+Successful response:
 
-## Payment security
+```json
+{
+  "success": true,
+  "data": {
+    "admin": {
+      "id": 1,
+      "username": "admin",
+      "email": "admin@example.com"
+    },
+    "expiresAt": "2026-10-02T12:00:00.000Z"
+  }
+}
+```
 
-Provider credentials, webhook secrets, signatures, authorization headers, and database credentials remain backend-only. They are not exposed to React or public files.
+The session credential is delivered only through an HttpOnly cookie. The JSON response never contains the password, password hash, raw session token, database credentials, or server secrets.
 
-QR identifiers are bearer-style credentials. They are not logged and are not included in generic error metadata. Verification responses return only the minimum booking reference needed for the entry decision.
+Invalid, nonexistent, and inactive accounts use the same `401 INVALID_CREDENTIALS` response. This avoids username/email enumeration.
 
-The application does not log full payment payloads or secrets. Provider-specific signature validation remains explicitly pending provider selection.
+Repeated failed login attempts are limited by a lightweight in-process limiter: five failures per fifteen-minute window by default. This is not a distributed rate-limit guarantee.
+
+### `GET /admin/auth/me`
+
+Requires the valid admin session cookie.
+
+Unauthenticated or expired/revoked sessions return:
+
+```text
+401 AUTHENTICATION_REQUIRED
+```
+
+Authenticated response contains only safe administrator identity and session expiration information.
+
+### `POST /admin/auth/logout`
+
+Requires a configured frontend `Origin`. The server revokes the current session in `admin_sessions` and clears the HttpOnly cookie. Logout is therefore server-side invalidation, not only frontend state deletion.
+
+## Admin authentication security
+
+Cookie attributes:
+
+- `HttpOnly`
+- `SameSite=Lax`
+- `Secure` in production
+- `Path=/api/admin`
+- explicit `Max-Age`
+
+State-changing admin endpoints require an `Origin` matching the configured `CORS_ORIGIN`. CORS uses credentialed requests only for configured origins; wildcard origins are not used.
+
+The existing logger is used for successful/failed login and logout events. Passwords, password hashes, session tokens, cookies, authorization headers, and sensitive request bodies are not logged.
+
+## Admin API boundary
+
+The protected namespace is reserved under:
+
+```text
+/api/admin/*
+```
+
+Phase 8 implements only:
+
+```text
+POST /api/admin/auth/login
+POST /api/admin/auth/logout
+GET  /api/admin/auth/me
+```
+
+No admin event, ticket, booking, payment, QR, gallery, sponsor, inquiry, reporting, or analytics endpoints exist in this phase.
+
+## Admin account creation
+
+No default administrator is created automatically and no real credentials are stored in seed data.
+
+Development or controlled operational setup uses:
+
+```bash
+npm --workspace backend run admin:create
+```
+
+with `ADMIN_BOOTSTRAP_USERNAME`, `ADMIN_BOOTSTRAP_EMAIL`, and `ADMIN_BOOTSTRAP_PASSWORD` supplied through the backend environment. Production additionally requires `ADMIN_BOOTSTRAP_CONFIRM=CREATE_ADMIN`.
+
+## Configuration
+
+Backend configuration is server-side only. Copy `backend/.env.example` to `backend/.env` and provide local values. Authentication secrets are not exposed through React environment variables because the session credential is generated server-side and delivered only through an HttpOnly cookie.
 
 ## Inventory limitation
 
-The current schema provides ticket-category `availability_status` (`available`/`unavailable`) but does not define a numeric ticket quota, capacity, or remaining-inventory field. Phase 5 therefore does **not** claim finite inventory enforcement and does not invent a capacity value.
+The current schema defines ticket-category availability status but no numeric capacity/quota. The booking/ticket phases therefore do not claim finite inventory enforcement.
 
 ## Status code conventions
 
 - `200` successful request or idempotent replay
 - `201` new booking/payment record successfully initiated
 - `400` malformed or invalid request
+- `401` authentication required or invalid credentials
+- `403` CSRF/origin or authorization failure
 - `404` unknown API route/resource
 - `409` resource/state/amount/reference conflict
 - `413` request body too large
+- `429` login rate limit exceeded
 - `500` unexpected internal error
 - `503` database or unconfigured payment-provider dependency unavailable
-
-## Configuration
-
-Backend configuration is server-side only. Copy `backend/.env.example` to `backend/.env` and provide local values. Database credentials and future payment credentials must never be placed in frontend environment variables.
-
-The payment provider configuration currently defaults to:
-
-```text
-PAYMENT_PROVIDER=unconfigured
-```
-
-No production payment provider is configured yet.
-
-## Development
-
-```bash
-npm install
-npm --workspace backend run dev
-npm --workspace frontend run dev
-```
-
-## Tests and lint
-
-```bash
-npm --workspace backend test
-npm --workspace backend run lint
-npm --workspace frontend run lint
-npm --workspace frontend run build
-```
-
-## Database commands
-
-```bash
-npm run db:check
-npm run db:migrate
-npm run db:validate
-npm run db:seed
-```
-
-Phase 7 does not add a schema migration because the existing `qr_tickets` table already contains the required one-booking-to-many-ticket fields and the unique QR identifier constraint. No authentication/admin, notifications, gallery, sponsor, inquiry, reporting, email, WhatsApp, Maps, or inventory business functionality has been added.
