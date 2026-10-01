@@ -81,7 +81,9 @@ describe('Payment service', () => {
   });
 
   it('rejects a nonexistent booking', async () => {
-    const connection = makeConnection([[]]);
+    const connection = makeConnection([
+      [[]],
+    ]);
     const provider = mockProvider();
     runTransactionMocks([connection]);
 
