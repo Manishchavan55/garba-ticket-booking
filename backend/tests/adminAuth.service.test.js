@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const connection = { execute: vi.fn() };
-const pool = { execute: vi.fn() };
+const { connection, pool } = vi.hoisted(() => ({
+  connection: { execute: vi.fn() },
+  pool: { execute: vi.fn() },
+}));
 
 vi.mock('../src/database/connection.js', () => ({
   getDatabasePool: vi.fn(() => pool),
