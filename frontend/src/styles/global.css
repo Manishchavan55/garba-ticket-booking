@@ -31,7 +31,9 @@ select {
 }
 
 button:focus-visible,
-a:focus-visible {
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid #b86b1f;
   outline-offset: 3px;
 }
@@ -156,7 +158,9 @@ p {
 .detail-card,
 .ticket-card,
 .status-message,
-.booking-placeholder {
+.booking-placeholder,
+.booking-success,
+.booking-form {
   border: 1px solid rgba(33, 26, 22, 0.12);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.82);
@@ -196,8 +200,11 @@ p {
   white-space: nowrap;
 }
 
-.button--disabled {
+.button:disabled {
   cursor: not-allowed;
+}
+
+.button--disabled {
   opacity: 0.55;
 }
 
@@ -211,7 +218,8 @@ p {
 .ticket-card,
 .detail-card,
 .status-message,
-.booking-placeholder {
+.booking-placeholder,
+.booking-success {
   padding: 1.4rem;
 }
 
@@ -290,13 +298,118 @@ p {
   line-height: 1.8;
 }
 
-.booking-placeholder {
+.booking-placeholder,
+.booking-success {
   text-align: center;
 }
 
-.booking-placeholder h2 {
+.booking-placeholder h2,
+.booking-success h1 {
   margin-bottom: 0.8rem;
   font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.booking-header {
+  margin-bottom: 2rem;
+}
+
+.booking-header h1 {
+  max-width: 16ch;
+  font-size: clamp(2.6rem, 7vw, 5rem);
+}
+
+.booking-form {
+  display: grid;
+  gap: 1.5rem;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.booking-form fieldset {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.booking-form legend {
+  margin-bottom: 0.8rem;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.booking-form label {
+  margin-top: 0.35rem;
+  font-weight: 800;
+}
+
+.booking-form input,
+.booking-form select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(33, 26, 22, 0.22);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.field-error {
+  margin: 0;
+  color: #8a3d2c;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.booking-total {
+  margin: 0.8rem 0 0;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.booking-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.text-link {
+  font-weight: 800;
+}
+
+.booking-payment-note {
+  margin: 0;
+  color: #62574f;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.booking-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 2rem auto;
+  max-width: 680px;
+  text-align: left;
+}
+
+.booking-summary div {
+  padding: 1rem;
+  border-radius: 14px;
+  background: #f7f2eb;
+}
+
+.booking-summary dt {
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.booking-summary dd {
+  margin: 0;
+  font-weight: 800;
 }
 
 .site-footer {
@@ -325,7 +438,8 @@ p {
   }
 
   .ticket-grid,
-  .detail-grid {
+  .detail-grid,
+  .booking-summary {
     grid-template-columns: 1fr;
   }
 
