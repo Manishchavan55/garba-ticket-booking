@@ -38,6 +38,8 @@ export const notFoundHandler = (req, res) => {
 };
 
 export const errorHandler = (error, req, res, _next) => {
+  void _next;
+
   const normalized = normalizeError(error);
   logger.error('API request failed', {
     method: req.method,
