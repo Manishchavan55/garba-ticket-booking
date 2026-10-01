@@ -11,6 +11,7 @@ const { createApp } = await import('../src/app.js');
 const app = createApp();
 
 const validPayload = {
+  eventId: 1,
   ticketCategoryId: 1,
   quantity: 2,
   customerName: 'Test Customer',
