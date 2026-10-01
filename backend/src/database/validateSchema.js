@@ -11,6 +11,7 @@ const requiredTables = [
   'sponsors',
   'inquiries',
   'admin_users',
+  'admin_sessions',
 ];
 
 const requiredForeignKeys = [
@@ -18,6 +19,7 @@ const requiredForeignKeys = [
   ['bookings', 'fk_bookings_ticket_category'],
   ['payments', 'fk_payments_booking'],
   ['qr_tickets', 'fk_qr_tickets_booking'],
+  ['admin_sessions', 'fk_admin_sessions_admin_user'],
 ];
 
 const requiredUniqueIndexes = [
@@ -27,6 +29,7 @@ const requiredUniqueIndexes = [
   ['qr_tickets', 'uq_qr_tickets_identifier'],
   ['admin_users', 'uq_admin_users_username'],
   ['admin_users', 'uq_admin_users_email'],
+  ['admin_sessions', 'uq_admin_sessions_token_hash'],
 ];
 
 try {
