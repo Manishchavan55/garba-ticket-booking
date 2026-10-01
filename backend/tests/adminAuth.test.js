@@ -53,6 +53,7 @@ describe('Admin authentication API', () => {
 
   it('uses a generic authentication error for invalid credentials', async () => {
     loginAdmin.mockResolvedValue(null);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const response = await request(app)
       .post('/api/admin/auth/login')
@@ -62,6 +63,8 @@ describe('Admin authentication API', () => {
 
     expect(response.body.error.code).toBe('INVALID_CREDENTIALS');
     expect(response.body.error.message).toBe('Invalid administrator credentials');
+    expect(errorSpy.mock.calls.flat().join(' ')).not.toContain('A-secure-development-password');
+    errorSpy.mockRestore();
   });
 
   it('rejects login without credentials', async () => {
@@ -123,6 +126,22 @@ describe('Admin authentication API', () => {
     expect(response.body).toEqual({ success: true, data: { loggedOut: true } });
     expect(logoutAdmin).toHaveBeenCalledWith('opaque-session-token');
     expect(response.headers['set-cookie'][0]).toMatch(/Max-Age=0/);
+  });
+
+  it('rejects an authenticated request after logout invalidates the session', async () => {
+    logoutAdmin.mockResolvedValue(undefined);
+    getAuthenticatedAdmin.mockResolvedValue(null);
+
+    await request(app)
+      .post('/api/admin/auth/logout')
+      .set('Origin', origin)
+      .set('Cookie', 'kdn_admin_session=opaque-session-token')
+      .expect(200);
+
+    await request(app)
+      .get('/api/admin/auth/me')
+      .set('Cookie', 'kdn_admin_session=opaque-session-token')
+      .expect(401);
   });
 
   it('protects the admin namespace after authentication is absent', async () => {
