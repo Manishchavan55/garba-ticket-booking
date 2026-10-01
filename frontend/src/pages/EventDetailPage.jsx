@@ -21,27 +21,16 @@ export default function EventDetailPage() {
   useEffect(() => {
     let active = true;
     setEventStatus('loading');
-    setTicketStatus('loading');
 
-    Promise.all([getEvent(id), getTicketCategories(id)])
-      .then(([eventData, ticketData]) => {
+    getEvent(id)
+      .then((data) => {
         if (!active) return;
-        setEvent(eventData);
-        setCategories(ticketData);
+        setEvent(data);
         setEventStatus('success');
-        setTicketStatus('success');
       })
-      .catch(async (error) => {
+      .catch((error) => {
         if (!active) return;
-        const statusCode = error?.response?.status;
-        if (statusCode === 404) {
-          setEventStatus('not-found');
-          setTicketStatus('not-found');
-          return;
-        }
-
-        setEventStatus('error');
-        setTicketStatus('error');
+        setEventStatus(error?.response?.status === 404 ? 'not-found' : 'error');
       });
 
     return () => {
@@ -50,23 +39,40 @@ export default function EventDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (event) {
-      document.title = `${event.name} | KESARIYA Dandiya Nights`;
-      const description = event.guidelines || `${event.name} at ${event.venue}.`;
-      let meta = document.querySelector('meta[name="description"]');
-      if (!meta) {
-        meta = document.createElement('meta');
-        meta.name = 'description';
-        document.head.appendChild(meta);
-      }
-      meta.content = description.slice(0, 160);
-    } else {
-      document.title = 'Event | KESARIYA Dandiya Nights';
-    }
+    let active = true;
+    setTicketStatus('loading');
+
+    getTicketCategories(id)
+      .then((data) => {
+        if (!active) return;
+        setCategories(data);
+        setTicketStatus('success');
+      })
+      .catch((error) => {
+        if (!active) return;
+        setTicketStatus(error?.response?.status === 404 ? 'not-found' : 'error');
+      });
 
     return () => {
-      document.title = 'KESARIYA Dandiya Nights';
+      active = false;
     };
+  }, [id]);
+
+  useEffect(() => {
+    document.title = event ? `${event.name} | KESARIYA Dandiya Nights` : 'Event | KESARIYA Dandiya Nights';
+
+    if (!event) return undefined;
+
+    const description = event.guidelines || `${event.name} at ${event.venue}.`;
+    let meta = document.querySelector('meta[name="description"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'description';
+      document.head.appendChild(meta);
+    }
+    meta.content = description.slice(0, 160);
+
+    return undefined;
   }, [event]);
 
   if (eventStatus === 'loading') {
@@ -113,18 +119,9 @@ export default function EventDetailPage() {
             <h2 id="details-title">Event details</h2>
           </div>
           <div className="detail-grid">
-            <div className="detail-card">
-              <h3>Date</h3>
-              <p>{formatDate(event.event_date)}</p>
-            </div>
-            <div className="detail-card">
-              <h3>Time</h3>
-              <p>{formatTime(event.start_time)}{event.end_time ? ` – ${formatTime(event.end_time)}` : ''}</p>
-            </div>
-            <div className="detail-card">
-              <h3>Venue</h3>
-              <p>{event.venue}</p>
-            </div>
+            <div className="detail-card"><h3>Date</h3><p>{formatDate(event.event_date)}</p></div>
+            <div className="detail-card"><h3>Time</h3><p>{formatTime(event.start_time)}{event.end_time ? ` – ${formatTime(event.end_time)}` : ''}</p></div>
+            <div className="detail-card"><h3>Venue</h3><p>{event.venue}</p></div>
           </div>
         </section>
 
@@ -135,9 +132,8 @@ export default function EventDetailPage() {
           </div>
           {ticketStatus === 'loading' && <StatusMessage title="Loading tickets" message="Fetching available ticket categories." />}
           {ticketStatus === 'error' && <StatusMessage title="Tickets unavailable" message="Ticket information could not be loaded right now." tone="error" />}
-          {ticketStatus === 'success' && categories.length === 0 && (
-            <StatusMessage title="No ticket categories" message="Ticket categories have not been published for this event yet." />
-          )}
+          {ticketStatus === 'not-found' && <StatusMessage title="Tickets unavailable" message="Ticket information could not be found for this event." tone="error" />}
+          {ticketStatus === 'success' && categories.length === 0 && <StatusMessage title="No ticket categories" message="Ticket categories have not been published for this event yet." />}
           {ticketStatus === 'success' && categories.length > 0 && (
             <div className="ticket-grid">
               {categories.map((category) => <TicketCategoryCard category={category} key={`${category.name}-${category.price}`} />)}
