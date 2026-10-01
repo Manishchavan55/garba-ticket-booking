@@ -22,8 +22,8 @@ The repository is a monorepo with independently owned frontend, backend, databas
 .
 ├── backend/          # Node.js/Express API and database layer
 ├── frontend/         # React/Vite application shell
-├── database/         # Database architecture documentation
-├── docs/             # Architecture and project documentation
+├── database/         # Database architecture and migrations
+├── docs/             # Architecture and API documentation
 ├── .env.example      # Non-secret environment reference
 ├── .gitignore
 └── package.json      # Workspace scripts
@@ -84,22 +84,41 @@ npm --workspace frontend run dev
 
 Vite serves the application on its configured local development port, normally `http://localhost:5173`.
 
-## Health endpoint
+## Phase 3 API foundation
+
+Current backend endpoints:
 
 ```text
-GET http://localhost:8080/api/health
+GET /api/health
+GET /api/health/ready
 ```
 
-Expected response:
+`/api/health` confirms that the application process is running and deliberately does not depend on MySQL.
+
+`/api/health/ready` verifies that the configured MySQL dependency is reachable.
+
+API responses use one consistent JSON convention:
 
 ```json
 {
-  "status": "ok",
-  "service": "kesariya-api"
+  "success": true,
+  "data": {}
 }
 ```
 
-The API health endpoint intentionally does not claim database health. Database connectivity is checked separately with `npm run db:check`.
+Errors use:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable message"
+  }
+}
+```
+
+See `docs/api.md` for the current API contract and status-code conventions.
 
 ## Phase 2 database setup
 
@@ -131,9 +150,11 @@ Check basic connectivity:
 npm run db:check
 ```
 
-The migration process is implemented in `backend/src/database/migrate.js` and reads ordered SQL files from `backend/src/database/migrations/`. Applied migration filenames are tracked in `schema_migrations`.
+Seed development data only when appropriate:
 
-No development seed data is included because the specification does not define particular fictional event or ticket values and no business assumptions are necessary for the database foundation.
+```bash
+npm run db:seed
+```
 
 ## Testing and validation
 
@@ -161,45 +182,32 @@ Frontend production build:
 npm --workspace frontend run build
 ```
 
-Database validation:
-
-```bash
-npm run db:validate
-```
-
-## Phase 2 status
+## Phase 3 status
 
 Implemented:
 
-- MySQL 8.x-compatible schema
-- `events`
-- `ticket_categories`
-- `bookings`
-- `payments`
-- `qr_tickets`
-- `gallery`
-- `sponsors`
-- `inquiries`
-- `admin_users`
-- Foreign-key relationships
-- Monetary precision and database constraints
-- Booking/payment/QR uniqueness protections
-- Lightweight ordered SQL migrations
-- Migration tracking through `schema_migrations`
-- Schema validation command
-- Database architecture documentation
+- Consistent API response and error conventions
+- Centralized error classification/handling
+- Reusable request validation infrastructure
+- Async error propagation through `asyncHandler`
+- Controlled CORS and Helmet security headers
+- Configurable request body limit
+- Safe structured backend logging
+- Application health and database readiness endpoints
+- Reusable MySQL transaction helper
+- Backend API documentation
+- Expanded backend tests for health, 404, malformed JSON, validation, and transaction behavior
 
-Intentionally not implemented in Phase 2:
+Intentionally not implemented in Phase 3:
 
-- Event management UI/API
-- Ticket selection or booking UI/API
-- Booking service/business rules
-- Payment gateway or callbacks/webhooks
-- QR generation, scanning, or verification API
-- Admin authentication or dashboard
-- Gallery/sponsor/inquiry UI
-- Email or WhatsApp
-- Google Maps
+- Event management API
+- Ticket management/inventory API
+- Booking API/business rules
+- Payment gateway/webhooks/verification
+- QR generation/scanning/verification
+- Admin authentication/authorization/dashboard
+- Gallery/sponsor/inquiry APIs
 - Reports/analytics
+- Email/WhatsApp/Google Maps
 
 These belong to later phases.
