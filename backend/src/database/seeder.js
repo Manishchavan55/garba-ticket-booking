@@ -1,24 +1,23 @@
-const fs = require('node:fs/promises');
-const path = require('node:path');
-const { getPool } = require('./connection');
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { getDatabasePool, closeDatabasePool } from './connection.js';
 
-async function seed() {
-  const pool = getPool();
-  const seedPath = path.resolve(__dirname, '../../../database/seed/001_development_seed.sql');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const seedPath = path.resolve(__dirname, '../../../database/seed/001_development_seed.sql');
+
+export const seed = async () => {
+  const pool = getDatabasePool();
   const sql = await fs.readFile(seedPath, 'utf8');
   await pool.query(sql);
-}
+};
 
-if (require.main === module) {
-  seed()
-    .then(() => {
-      console.log('Development seed completed.');
-      return getPool().end();
-    })
-    .catch((error) => {
-      console.error('Database seed failed:', error.message);
-      process.exitCode = 1;
-    });
+try {
+  await seed();
+  console.log('Development seed completed.');
+} catch (error) {
+  console.error('Database seed failed:', error.message);
+  process.exitCode = 1;
+} finally {
+  await closeDatabasePool();
 }
-
-module.exports = { seed };
