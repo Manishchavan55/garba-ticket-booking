@@ -36,7 +36,7 @@ export const getPublicEventById = async (eventId) => {
 export const getPublicTicketCategories = async (eventId) => {
   const pool = getDatabasePool();
   const [rows] = await pool.execute(`
-    SELECT name, price, availability_status
+    SELECT id, name, price, availability_status
     FROM ticket_categories
     WHERE event_id = ?
     ORDER BY id ASC
