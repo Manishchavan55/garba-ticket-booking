@@ -125,62 +125,131 @@ Success response (`201`):
 }
 ```
 
-The existing database `pending` status is the Phase 5 pre-payment state and is documented semantically as **PENDING_PAYMENT**. It is not changed to `confirmed` by booking creation. Later payment integration will own payment-success transitions.
+The existing database `pending` status is the Phase 5 pre-payment state and is documented semantically as **PENDING_PAYMENT**. It is not changed to `confirmed` by booking creation. Payment verification owns the later transition.
 
-A successful booking response does not mean:
+## Payment API
 
-- payment was successful
-- a payment gateway was called
-- a ticket was issued
-- a QR code was generated
-- an email or WhatsApp message was sent
+### `POST /bookings/:bookingId/payment`
 
-Validation errors return `400`. A missing or mismatched ticket category returns `404` with `TICKET_CATEGORY_NOT_FOUND`. An unavailable category returns `409` with `TICKET_CATEGORY_UNAVAILABLE`.
+Initiates checkout for a payable booking.
 
-The API does not provide a public booking lookup endpoint in Phase 5 because authentication/customer access tokens are not yet available. Numeric database IDs are never exposed as a booking lookup mechanism.
+Required header:
+
+```text
+Idempotency-Key: <client-generated unique key>
+```
+
+The backend:
+
+1. locks and loads the booking by its public booking ID
+2. requires the booking to remain in `pending`
+3. loads amount/currency from MySQL
+4. creates or reuses a pending payment record
+5. delegates checkout creation to the configured provider abstraction
+6. never marks the booking paid during checkout creation
+
+A configured provider may return a checkout URL/reference. Until a production provider is selected, this endpoint returns a sanitized `503 PAYMENT_PROVIDER_NOT_CONFIGURED` response after the pending payment boundary has been established.
+
+### `POST /payments/verify`
+
+Backend verification boundary. The request identifies the booking and carries provider data, but a browser-supplied status such as `{"status":"paid"}` is never sufficient.
+
+The configured provider implementation must authenticate/verify the provider result and normalize it before the service will:
+
+- compare amount against the authoritative booking amount
+- compare currency against the authoritative booking currency
+- verify the provider transaction reference
+- update the payment state
+- transition the booking from `pending` to `confirmed`
+
+No production provider is configured yet, so this endpoint currently returns `503 PAYMENT_PROVIDER_NOT_CONFIGURED`.
+
+### `POST /payments/webhook`
+
+Generic provider webhook boundary. Provider-specific signature/authentication is intentionally not invented before provider selection. The configured provider implementation owns webhook authenticity verification and event normalization.
+
+No production provider is configured yet, so this endpoint currently returns `503 PAYMENT_PROVIDER_NOT_CONFIGURED`.
+
+## Payment state machine
+
+Payment state and booking state are separate:
+
+```text
+Payment:
+  pending -> successful
+  pending -> failed
+
+Booking:
+  pending --verified successful payment--> confirmed
+```
+
+A failed payment never confirms the booking. A successful payment is recorded only after trusted provider verification. Repeated successful verification is handled idempotently.
+
+Payment amount and currency are always compared against the authoritative booking/payment data loaded from MySQL. Browser totals, client status values, and redirect URLs are not authoritative.
+
+## Provider abstraction
+
+The backend uses:
+
+```text
+PaymentService
+    ↓
+PaymentProvider interface
+    ↓
+Provider implementation
+```
+
+The provider contract supports:
+
+- checkout creation
+- payment authenticity verification
+- webhook authenticity verification
+- normalized payment status
+
+The current implementation is an isolated `unconfigured` provider that deliberately fails closed. It is a configuration boundary, **not a payment gateway and not a fake successful-payment implementation**.
+
+Provider-specific signatures, credentials, API fields, checkout behavior, and webhook payloads remain pending production provider selection.
+
+## Payment idempotency and atomicity
+
+Payment initiation uses the existing `payments.idempotency_key` unique constraint. Provider transaction references use the existing unique `(provider, gateway_transaction_reference)` constraint.
+
+Payment confirmation uses the existing transaction helper and locks the relevant payment/booking rows before state changes. The payment update and booking confirmation commit together or roll back together.
+
+Duplicate provider events and repeated verification do not create another payment or reapply the successful booking transition.
+
+## Payment security
+
+Provider credentials, webhook secrets, signatures, authorization headers, and database credentials remain backend-only. They are not exposed to React or public files.
+
+The application does not log full payment payloads or secrets. Provider-specific signature validation remains explicitly pending provider selection.
 
 ## Inventory limitation
 
 The current schema provides ticket-category `availability_status` (`available`/`unavailable`) but does not define a numeric ticket quota, capacity, or remaining-inventory field. Phase 5 therefore does **not** claim finite inventory enforcement and does not invent a capacity value.
 
-The booking transaction locks the selected ticket-category row while checking its current availability and creating the booking. This prevents the availability decision and booking write from being split across separate transactions, but it does not constitute numeric inventory enforcement.
-
-A future inventory model must be defined by the organizer before the system can claim remaining-ticket or overselling guarantees.
-
-## Booking lifecycle
-
-Phase 5 establishes:
-
-```text
-PENDING_PAYMENT
-      ↓
-[future payment phase]
-      ↓
-PAID / later ticket issuance states
-```
-
-The database currently represents the first state as `booking_status = 'pending'`, preserving the Phase 2 status constraint. Existing `confirmed`, `cancelled`, and `failed` values remain available for later lifecycle phases but are not transitioned by Phase 5 payment logic.
-
-## Public API security boundary
-
-Public endpoints do not expose customer, payment, admin, credential, or internal operational fields. Booking responses contain only the public booking identifier, lifecycle status, authoritative amount, and currency.
-
-Customer email/phone are accepted only for creating the booking and are not returned in the booking response or public event endpoints.
-
 ## Status code conventions
 
 - `200` successful request or idempotent replay
-- `201` new booking successfully created
+- `201` new booking/payment record successfully initiated
 - `400` malformed or invalid request
 - `404` unknown API route/resource
-- `409` resource conflict, including unavailable ticket category
+- `409` resource/state/amount/reference conflict
 - `413` request body too large
 - `500` unexpected internal error
-- `503` database/service dependency unavailable
+- `503` database or unconfigured payment-provider dependency unavailable
 
 ## Configuration
 
-Backend configuration is server-side only. Copy `backend/.env.example` to `backend/.env` and provide local values. Database credentials must never be placed in frontend environment variables.
+Backend configuration is server-side only. Copy `backend/.env.example` to `backend/.env` and provide local values. Database credentials and future payment credentials must never be placed in frontend environment variables.
+
+The payment provider configuration currently defaults to:
+
+```text
+PAYMENT_PROVIDER=unconfigured
+```
+
+No production payment provider is configured yet.
 
 ## Development
 
@@ -208,4 +277,4 @@ npm run db:validate
 npm run db:seed
 ```
 
-Phase 5 adds only the booking idempotency migration. No payment, QR, admin, gallery, sponsor, inquiry, reporting, email, WhatsApp, or Maps business APIs exist yet.
+Phase 6 does not add a new payment table or migration. It uses the existing `payments` table and its Phase 2 uniqueness constraints. No QR, ticket issuance, admin, gallery, sponsor, inquiry, reporting, email, WhatsApp, or Maps business APIs exist yet.
