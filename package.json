@@ -1,0 +1,12 @@
+{
+  "name": "kesariya-dandiya-nights",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["frontend", "backend"],
+  "scripts": {
+    "test": "npm --workspace backend test",
+    "build": "npm --workspace frontend build",
+    "lint": "npm --workspace backend run lint && npm --workspace frontend run lint",
+    "db:check": "npm --workspace backend run db:check"
+  }
+}

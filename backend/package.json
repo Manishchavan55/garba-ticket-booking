@@ -1,0 +1,25 @@
+{
+  "name": "kesariya-dandiya-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "db:check": "node src/database/checkConnection.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "mysql2": "^3.14.3"
+  },
+  "devDependencies": {
+    "eslint": "^9.37.0",
+    "supertest": "^7.1.4",
+    "vitest": "^3.2.4"
+  }
+}
