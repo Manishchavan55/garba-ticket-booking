@@ -6,6 +6,14 @@ export const createSessionToken = () => randomBytes(32).toString('base64url');
 
 export const hashSessionToken = (token) => createHash('sha256').update(token).digest('hex');
 
+const decodeCookieValue = (value) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return '';
+  }
+};
+
 export const parseCookies = (cookieHeader = '') => Object.fromEntries(
   cookieHeader
     .split(';')
@@ -16,7 +24,7 @@ export const parseCookies = (cookieHeader = '') => Object.fromEntries(
       if (separatorIndex < 0) {
         return [part, ''];
       }
-      return [part.slice(0, separatorIndex), decodeURIComponent(part.slice(separatorIndex + 1))];
+      return [part.slice(0, separatorIndex), decodeCookieValue(part.slice(separatorIndex + 1))];
     }),
 );
 
