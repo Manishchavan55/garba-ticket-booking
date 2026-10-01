@@ -34,5 +34,25 @@ export const requirePaymentVerificationPayload = (req, _res, next) => {
     error.type = 'validation';
     throw error;
   }
+
+  if (!BOOKING_ID_PATTERN.test(req.body.bookingId ?? '')) {
+    const error = new Error('Verification payload must identify a valid booking');
+    error.statusCode = 400;
+    error.code = 'INVALID_BOOKING_ID';
+    error.type = 'validation';
+    throw error;
+  }
+
+  next();
+};
+
+export const requirePaymentWebhookPayload = (req, _res, next) => {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    const error = new Error('Webhook payload must be a JSON object');
+    error.statusCode = 400;
+    error.code = 'INVALID_PAYMENT_WEBHOOK_PAYLOAD';
+    error.type = 'validation';
+    throw error;
+  }
   next();
 };
