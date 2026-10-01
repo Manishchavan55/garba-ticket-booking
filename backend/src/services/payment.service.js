@@ -172,6 +172,22 @@ export const initiatePayment = async (bookingId, idempotencyKey, provider = getP
 };
 
 const applyVerifiedPayment = async (connection, context, normalizedPayment) => {
+  if (context.provider && context.provider !== normalizedPayment.provider) {
+    const error = new Error('Verified payment provider does not match the recorded payment provider');
+    error.statusCode = 409;
+    error.code = 'PAYMENT_PROVIDER_MISMATCH';
+    error.type = 'conflict';
+    throw error;
+  }
+
+  if (context.gateway_transaction_reference && context.gateway_transaction_reference !== normalizedPayment.providerTransactionReference) {
+    const error = new Error('Verified payment reference does not match the recorded provider reference');
+    error.statusCode = 409;
+    error.code = 'PAYMENT_REFERENCE_MISMATCH';
+    error.type = 'conflict';
+    throw error;
+  }
+
   if (!moneyEqual(context.booking_amount, normalizedPayment.amount)) {
     const error = new Error('Verified payment amount does not match the authoritative booking amount');
     error.statusCode = 409;
