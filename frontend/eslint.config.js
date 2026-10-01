@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 
@@ -7,6 +8,7 @@ export default [
     ignores: ['dist/**', 'node_modules/**'],
   },
   js.configs.recommended,
+  react.configs.flat.recommended,
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
@@ -20,6 +22,11 @@ export default [
         document: 'readonly',
         import: 'readonly',
         console: 'readonly',
+      },
+    },
+    settings: {
+      react: {
+        version: 'detect',
       },
     },
     plugins: {
