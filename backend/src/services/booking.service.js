@@ -52,14 +52,14 @@ const createBookingInTransaction = async (connection, input, idempotencyKey) => 
   const [categoryRows] = await connection.execute(`
     SELECT id, event_id, price, availability_status
     FROM ticket_categories
-    WHERE id = ?
+    WHERE id = ? AND event_id = ?
     LIMIT 1
     FOR UPDATE
-  `, [input.ticketCategoryId]);
+  `, [input.ticketCategoryId, input.eventId]);
 
   const category = categoryRows[0];
   if (!category) {
-    const error = new Error('Ticket category not found');
+    const error = new Error('Ticket category was not found for the selected event');
     error.statusCode = 404;
     error.code = 'TICKET_CATEGORY_NOT_FOUND';
     throw error;
