@@ -20,9 +20,9 @@ The repository is a monorepo with independently owned frontend, backend, databas
 
 ```text
 .
-├── backend/          # Node.js/Express API foundation
+├── backend/          # Node.js/Express API and database layer
 ├── frontend/         # React/Vite application shell
-├── database/         # Database setup notes; schema arrives in a later phase
+├── database/         # Database architecture documentation
 ├── docs/             # Architecture and project documentation
 ├── .env.example      # Non-secret environment reference
 ├── .gitignore
@@ -33,9 +33,7 @@ The repository is a monorepo with independently owned frontend, backend, databas
 
 - Node.js 20 LTS or newer
 - npm 10 or newer
-- MySQL 8.x for database connectivity checks
-
-No MySQL database schema is required for Phase 1.
+- MySQL 8.x
 
 ## Installation
 
@@ -101,7 +99,41 @@ Expected response:
 }
 ```
 
-The Phase 1 API health endpoint intentionally does not claim database health. Database connectivity is checked separately with `npm run db:check` so an unavailable MySQL instance cannot be mistaken for a healthy database.
+The API health endpoint intentionally does not claim database health. Database connectivity is checked separately with `npm run db:check`.
+
+## Phase 2 database setup
+
+Create an empty MySQL database using your MySQL administration tooling, then configure `backend/.env`:
+
+```text
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=kesariya_dandiya
+DB_USER=your_mysql_user
+DB_PASSWORD=your_mysql_password
+```
+
+Run the migration process:
+
+```bash
+npm run db:migrate
+```
+
+Validate required tables, foreign keys, and unique constraints:
+
+```bash
+npm run db:validate
+```
+
+Check basic connectivity:
+
+```bash
+npm run db:check
+```
+
+The migration process is implemented in `backend/src/database/migrate.js` and reads ordered SQL files from `backend/src/database/migrations/`. Applied migration filenames are tracked in `schema_migrations`.
+
+No development seed data is included because the specification does not define particular fictional event or ticket values and no business assumptions are necessary for the database foundation.
 
 ## Testing and validation
 
@@ -129,47 +161,45 @@ Frontend production build:
 npm --workspace frontend run build
 ```
 
-Database connectivity check:
+Database validation:
 
 ```bash
-npm run db:check
+npm run db:validate
 ```
 
-`db:check` requires valid backend database environment variables and a reachable MySQL server. It reports failure rather than fabricating success when MySQL is unavailable.
-
-## Phase 1 status
+## Phase 2 status
 
 Implemented:
 
-- Monorepo foundation
-- React/Vite application shell
-- React routing foundation
-- Frontend API client foundation
-- Responsive/global CSS foundation
-- Express API foundation
-- `/api/health`
-- Centralized error and 404 handling
-- CORS and JSON middleware
-- Environment configuration
-- MySQL connection pool foundation
-- Basic backend tests
-- Frontend build/lint configuration
-- Git hygiene and environment templates
+- MySQL 8.x-compatible schema
+- `events`
+- `ticket_categories`
+- `bookings`
+- `payments`
+- `qr_tickets`
+- `gallery`
+- `sponsors`
+- `inquiries`
+- `admin_users`
+- Foreign-key relationships
+- Monetary precision and database constraints
+- Booking/payment/QR uniqueness protections
+- Lightweight ordered SQL migrations
+- Migration tracking through `schema_migrations`
+- Schema validation command
+- Database architecture documentation
 
-Intentionally not implemented in Phase 1:
+Intentionally not implemented in Phase 2:
 
-- Event management
-- Ticket categories or ticket sales
-- Booking
-- Payment gateway
-- QR generation or scanning
+- Event management UI/API
+- Ticket selection or booking UI/API
+- Booking service/business rules
+- Payment gateway or callbacks/webhooks
+- QR generation, scanning, or verification API
 - Admin authentication or dashboard
-- Gallery management
-- Sponsor management
-- Inquiry management
-- Reports/analytics
-- Email
-- WhatsApp
+- Gallery/sponsor/inquiry UI
+- Email or WhatsApp
 - Google Maps
+- Reports/analytics
 
 These belong to later phases.
