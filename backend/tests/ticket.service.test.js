@@ -42,7 +42,7 @@ const makeConnection = ({
   tickets = [],
   updateResult = { affectedRows: 1 },
   failInsert = false,
-}) => ({
+} = {}) => ({
   beginTransaction: vi.fn().mockResolvedValue(undefined),
   commit: vi.fn().mockResolvedValue(undefined),
   rollback: vi.fn().mockResolvedValue(undefined),
@@ -213,6 +213,32 @@ describe('Ticket service', () => {
     });
     expect(connection.rollback).toHaveBeenCalledTimes(1);
     expect(connection.execute.mock.calls.some(([sql]) => sql.includes('UPDATE qr_tickets'))).toBe(false);
+  });
+
+  it('rejects an invalid QR ticket state', async () => {
+    const qrIdentifier = 'H'.repeat(43);
+    const connection = makeConnection();
+    connection.execute.mockImplementation(async (sql) => {
+      if (sql.includes('FROM qr_tickets q')) {
+        return [[{
+          id: 101,
+          booking_id: 10,
+          qr_identifier: qrIdentifier,
+          verification_status: 'invalid',
+          public_booking_id: confirmedBooking.booking_id,
+          booking_status: 'confirmed',
+          payment_status: 'successful',
+        }], []];
+      }
+      throw new Error(`Unexpected SQL in invalid QR verification test: ${sql}`);
+    });
+    runTransactionMock(connection);
+
+    await expect(verifyQrTicket(qrIdentifier)).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'QR_TICKET_INVALID',
+    });
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
   });
 
   it('rejects a nonexistent QR ticket', async () => {
