@@ -9,6 +9,38 @@ const PAYMENT_FAILED = 'failed';
 
 const moneyEqual = (left, right) => Number(left) === Number(right);
 
+const loadPaymentContext = async (connection, bookingId) => {
+  const [rows] = await connection.execute(`
+    SELECT
+      p.id AS payment_id,
+      p.booking_id,
+      p.provider,
+      p.gateway_transaction_reference,
+      p.amount AS payment_amount,
+      p.currency AS payment_currency,
+      p.payment_status,
+      b.booking_id AS public_booking_id,
+      b.booking_status,
+      b.total_amount AS booking_amount,
+      b.currency AS booking_currency
+    FROM payments p
+    INNER JOIN bookings b ON b.id = p.booking_id
+    WHERE b.booking_id = ?
+    ORDER BY p.id DESC
+    LIMIT 1
+    FOR UPDATE
+  `, [bookingId]);
+
+  const context = rows[0];
+  if (!context) {
+    const error = new Error('Payment record was not found for this booking');
+    error.statusCode = 404;
+    error.code = 'PAYMENT_NOT_FOUND';
+    throw error;
+  }
+  return context;
+};
+
 const createPaymentInTransaction = async (connection, bookingId, idempotencyKey) => {
   const [bookingRows] = await connection.execute(`
     SELECT id, booking_id, booking_status, total_amount, currency
@@ -43,7 +75,7 @@ const createPaymentInTransaction = async (connection, bookingId, idempotencyKey)
   }
 
   const [idempotentRows] = await connection.execute(`
-    SELECT id, booking_id, provider, gateway_transaction_reference, amount, currency, payment_status
+    SELECT id, booking_id, provider, gateway_transaction_reference, amount, currency, payment_status, idempotency_key
     FROM payments
     WHERE idempotency_key = ?
     LIMIT 1
@@ -64,7 +96,7 @@ const createPaymentInTransaction = async (connection, bookingId, idempotencyKey)
   `, [booking.id]);
 
   const existing = existingRows[0];
-  if (existing && existing.payment_status === PAYMENT_SUCCESSFUL) {
+  if (existing?.payment_status === PAYMENT_SUCCESSFUL) {
     const error = new Error('Booking already has a successful payment');
     error.statusCode = 409;
     error.code = 'BOOKING_ALREADY_PAID';
@@ -72,7 +104,7 @@ const createPaymentInTransaction = async (connection, bookingId, idempotencyKey)
     throw error;
   }
 
-  if (existing && existing.payment_status === PAYMENT_PENDING) {
+  if (existing?.payment_status === PAYMENT_PENDING) {
     return { booking, payment: existing, reused: true };
   }
 
@@ -97,82 +129,46 @@ const createPaymentInTransaction = async (connection, bookingId, idempotencyKey)
   };
 };
 
-export const initiatePayment = async (bookingId, idempotencyKey) => {
-  const paymentContext = await withTransaction((connection) => createPaymentInTransaction(connection, bookingId, idempotencyKey));
-  const provider = getPaymentProvider();
+export const initiatePayment = async (bookingId, idempotencyKey, provider = getPaymentProvider()) => {
+  const context = await withTransaction((connection) => createPaymentInTransaction(connection, bookingId, idempotencyKey));
 
-  if (paymentContext.payment.gateway_transaction_reference) {
+  if (context.payment.gateway_transaction_reference) {
     return {
-      bookingId: paymentContext.booking.booking_id,
-      paymentId: paymentContext.payment.id,
-      status: paymentContext.payment.payment_status,
-      amount: String(paymentContext.payment.amount),
-      currency: paymentContext.payment.currency,
+      bookingId: context.booking.booking_id,
+      paymentId: context.payment.id,
+      status: context.payment.payment_status,
+      amount: String(context.payment.amount),
+      currency: context.payment.currency,
       checkout: null,
       reused: true,
     };
   }
 
-  try {
-    const checkout = await provider.createCheckout({
-      bookingId: paymentContext.booking.booking_id,
-      paymentId: paymentContext.payment.id,
-      amount: String(paymentContext.booking.total_amount),
-      currency: paymentContext.booking.currency,
-    });
+  const checkout = await provider.createCheckout({
+    bookingId: context.booking.booking_id,
+    paymentId: context.payment.id,
+    amount: String(context.booking.total_amount),
+    currency: context.booking.currency,
+    idempotencyKey: context.payment.idempotency_key,
+  });
 
-    await withTransaction(async (connection) => {
-      await connection.execute(`
-        UPDATE payments
-        SET provider = ?, gateway_transaction_reference = ?
-        WHERE id = ? AND payment_status = ?
-      `, [provider.name, checkout.providerTransactionReference, paymentContext.payment.id, PAYMENT_PENDING]);
-    });
+  await withTransaction(async (connection) => {
+    await connection.execute(`
+      UPDATE payments
+      SET provider = ?, gateway_transaction_reference = ?
+      WHERE id = ? AND payment_status = ?
+    `, [provider.name, checkout.providerTransactionReference, context.payment.id, PAYMENT_PENDING]);
+  });
 
-    return {
-      bookingId: paymentContext.booking.booking_id,
-      paymentId: paymentContext.payment.id,
-      status: PAYMENT_PENDING,
-      amount: String(paymentContext.booking.total_amount),
-      currency: paymentContext.booking.currency,
-      checkout,
-      reused: paymentContext.reused,
-    };
-  } catch (error) {
-    throw error;
-  }
-};
-
-const loadPaymentContext = async (connection, bookingId) => {
-  const [rows] = await connection.execute(`
-    SELECT
-      p.id AS payment_id,
-      p.booking_id,
-      p.provider,
-      p.gateway_transaction_reference,
-      p.amount AS payment_amount,
-      p.currency AS payment_currency,
-      p.payment_status,
-      b.booking_id AS public_booking_id,
-      b.booking_status,
-      b.total_amount AS booking_amount,
-      b.currency AS booking_currency
-    FROM payments p
-    INNER JOIN bookings b ON b.id = p.booking_id
-    WHERE b.booking_id = ?
-    ORDER BY p.id DESC
-    LIMIT 1
-    FOR UPDATE
-  `, [bookingId]);
-
-  const context = rows[0];
-  if (!context) {
-    const error = new Error('Payment record was not found for this booking');
-    error.statusCode = 404;
-    error.code = 'PAYMENT_NOT_FOUND';
-    throw error;
-  }
-  return context;
+  return {
+    bookingId: context.booking.booking_id,
+    paymentId: context.payment.id,
+    status: PAYMENT_PENDING,
+    amount: String(context.booking.total_amount),
+    currency: context.booking.currency,
+    checkout,
+    reused: context.reused,
+  };
 };
 
 const applyVerifiedPayment = async (connection, context, normalizedPayment) => {
@@ -223,7 +219,7 @@ const applyVerifiedPayment = async (connection, context, normalizedPayment) => {
   }
 
   const [referenceRows] = await connection.execute(`
-    SELECT id, booking_id, payment_status
+    SELECT id
     FROM payments
     WHERE provider = ? AND gateway_transaction_reference = ?
     LIMIT 1
@@ -253,18 +249,33 @@ const applyVerifiedPayment = async (connection, context, normalizedPayment) => {
   return { status: PAYMENT_SUCCESSFUL, bookingStatus: PAID_BOOKING_STATUS, idempotent: false };
 };
 
-export const verifyPayment = async (bookingId, providerPayload) => {
-  const provider = getPaymentProvider();
-  const normalized = await provider.verifyPayment(providerPayload);
+export const verifyPayment = async (bookingId, providerPayload, provider = getPaymentProvider()) => {
+  const context = await withTransaction((connection) => loadPaymentContext(connection, bookingId));
+  const normalized = await provider.verifyPayment({
+    payment: {
+      paymentId: context.payment_id,
+      provider: context.provider,
+      gatewayTransactionReference: context.gateway_transaction_reference,
+      amount: String(context.payment_amount),
+      currency: context.payment_currency,
+      status: context.payment_status,
+    },
+    booking: {
+      bookingId: context.public_booking_id,
+      amount: String(context.booking_amount),
+      currency: context.booking_currency,
+      status: context.booking_status,
+    },
+    payload: providerPayload,
+  });
 
   return withTransaction(async (connection) => {
-    const context = await loadPaymentContext(connection, bookingId);
-    return applyVerifiedPayment(connection, context, normalized);
+    const lockedContext = await loadPaymentContext(connection, bookingId);
+    return applyVerifiedPayment(connection, lockedContext, normalized);
   });
 };
 
-export const processWebhook = async (providerPayload) => {
-  const provider = getPaymentProvider();
+export const processWebhook = async (providerPayload, provider = getPaymentProvider()) => {
   const normalized = await provider.verifyWebhook(providerPayload);
 
   if (!normalized.bookingId) {
