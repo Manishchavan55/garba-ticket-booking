@@ -1,7 +1,10 @@
 import { validationError } from '../utils/errors.js';
 
 export const validateJsonBody = (req, res, next) => {
-  if (req.method !== 'GET' && req.method !== 'HEAD' && req.headers['content-length'] && !req.is('application/json')) {
+  const contentLength = Number(req.headers['content-length'] ?? 0);
+  const hasBody = Number.isFinite(contentLength) && contentLength > 0;
+
+  if (req.method !== 'GET' && req.method !== 'HEAD' && hasBody && !req.is('application/json')) {
     return next(validationError('Content-Type must be application/json'));
   }
 
