@@ -84,13 +84,14 @@ npm --workspace frontend run dev
 
 Vite serves the application on its configured local development port, normally `http://localhost:5173`.
 
-## Phase 4 public website
+## Phase 5 public booking flow
 
-The public React website currently provides:
+The public React website now provides:
 
 ```text
 /
 /events/:id
+/events/:id/book
 ```
 
 The public API currently provides:
@@ -99,13 +100,14 @@ The public API currently provides:
 GET /api/events
 GET /api/events/:id
 GET /api/events/:eventId/ticket-categories
+POST /api/bookings
 ```
 
-The public pages retrieve event and ticket-category data from the backend API. Event details, venue, guidelines, prices, and availability are not duplicated as frontend business data.
+The booking flow collects ticket category, quantity, customer name, email, and phone. The backend loads the ticket price from MySQL and creates the booking in the existing `pending` pre-payment state.
 
-The booking call-to-action is intentionally disabled/placeholder-only. No customer information, booking, inventory reservation, payment, QR ticket, or confirmation flow exists yet.
+Creating a booking does **not** mean payment succeeded, a ticket was issued, or a QR code was generated. Payment, QR, authentication, notifications, and admin features remain later phases.
 
-## Phase 2 database setup
+## Phase 2/5 database setup
 
 Create an empty MySQL database using your MySQL administration tooling, then configure `backend/.env`:
 
@@ -117,19 +119,19 @@ DB_USER=your_mysql_user
 DB_PASSWORD=your_mysql_password
 ```
 
-Run the migration process:
+Run migrations:
 
 ```bash
 npm run db:migrate
 ```
 
-Validate required tables, foreign keys, and unique constraints:
+Validate the schema:
 
 ```bash
 npm run db:validate
 ```
 
-Check basic connectivity:
+Check connectivity:
 
 ```bash
 npm run db:check
@@ -140,6 +142,12 @@ Seed development data only when appropriate:
 ```bash
 npm run db:seed
 ```
+
+Phase 5 adds `002_booking_idempotency.sql`, which adds a unique nullable idempotency key to bookings. Existing migrations must not be edited after being applied.
+
+## Inventory limitation
+
+The source requirements define ticket-category availability status but do not define numeric capacity/quota. Phase 5 therefore does not invent ticket quantities or claim finite inventory enforcement. The booking transaction locks the selected category while checking its current availability status and creating the booking.
 
 ## Testing and validation
 
@@ -167,29 +175,32 @@ Frontend production build:
 npm --workspace frontend run build
 ```
 
-## Phase 4 status
+## Phase 5 status
 
 Implemented:
 
-- Read-only public event API
-- Public ticket-category API
-- Public event and ticket service layer using parameterized MySQL queries
-- Public React home page
-- Public event detail route
-- Reusable ticket-category component
-- Loading, error, empty, and success states
-- Responsive public-site styling
-- Basic page titles and event meta descriptions
-- Semantic headings, links, and accessible disabled booking placeholder
-- API documentation for public endpoints
+- Transactional public booking creation API
+- Backend customer-data validation
+- Database-authoritative ticket price calculation
+- Decimal-safe integer-cents price calculation
+- Ticket-category availability-status enforcement
+- Server-generated unique booking IDs
+- Booking idempotency via `Idempotency-Key`
+- Existing MySQL transaction helper integration
+- Public booking route `/events/:id/book`
+- Customer booking form and client-side validation
+- Loading, validation, API-error, and booking-created states
+- Explicit payment-pending messaging
+- Booking API documentation and inventory limitation
+- Backend booking and transaction tests
 
-Intentionally not implemented in Phase 4:
+Intentionally not implemented in Phase 5:
 
-- Booking creation
-- Customer information collection
-- Inventory reservation
-- Payment gateway/verification
+- Numeric inventory/capacity enforcement
+- Payment gateway/checkout/webhooks/verification
+- Paid status transitions
 - QR generation/scanning/verification
+- Customer booking retrieval endpoint
 - Admin authentication/authorization/dashboard
 - Gallery management
 - Sponsor management
