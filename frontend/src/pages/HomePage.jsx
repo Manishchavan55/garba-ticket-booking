@@ -17,6 +17,17 @@ export default function HomePage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    document.title = 'KESARIYA Dandiya Nights';
+    let meta = document.querySelector('meta[name="description"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'description';
+      document.head.appendChild(meta);
+    }
+    meta.content = 'Public event information and ticket categories for KESARIYA Dandiya Nights.';
+  }, []);
+
+  useEffect(() => {
     getEvents()
       .then((data) => {
         setEvents(data);
@@ -47,9 +58,7 @@ export default function HomePage() {
 
           {status === 'loading' && <StatusMessage title="Loading event" message="Fetching the latest public event information." />}
           {status === 'error' && <StatusMessage title="Event unavailable" message={error} tone="error" />}
-          {status === 'success' && events.length === 0 && (
-            <StatusMessage title="No event published" message="There is no public event available yet." />
-          )}
+          {status === 'success' && events.length === 0 && <StatusMessage title="No event published" message="There is no public event available yet." />}
 
           {status === 'success' && events.length > 0 && (
             <div className="event-list">
