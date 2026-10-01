@@ -5,6 +5,11 @@ const parsePort = (value, fallback) => {
   return Number.isInteger(parsed) && parsed > 0 && parsed < 65536 ? parsed : fallback;
 };
 
+const parsePositiveInteger = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 const parseOrigins = (value) => value
   .split(',')
   .map((origin) => origin.trim())
@@ -24,5 +29,10 @@ export const config = Object.freeze({
   }),
   payment: Object.freeze({
     provider: process.env.PAYMENT_PROVIDER ?? 'unconfigured',
+  }),
+  adminAuth: Object.freeze({
+    sessionTtlHours: parsePositiveInteger(process.env.ADMIN_SESSION_TTL_HOURS, 8),
+    loginRateLimitMaxAttempts: parsePositiveInteger(process.env.ADMIN_LOGIN_RATE_LIMIT_MAX_ATTEMPTS, 5),
+    loginRateLimitWindowMinutes: parsePositiveInteger(process.env.ADMIN_LOGIN_RATE_LIMIT_WINDOW_MINUTES, 15),
   }),
 });
