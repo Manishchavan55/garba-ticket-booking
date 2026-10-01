@@ -9,12 +9,11 @@ vi.mock('../src/database/transaction.js', () => transactionMock);
 const { createBooking } = await import('../src/services/booking.service.js');
 
 const makeConnection = (responses) => ({
-  execute: vi.fn()
-    .mockImplementation(async () => {
-      const response = responses.shift();
-      if (response instanceof Error) throw response;
-      return response;
-    }),
+  execute: vi.fn().mockImplementation(async () => {
+    const response = responses.shift();
+    if (response instanceof Error) throw response;
+    return response;
+  }),
 });
 
 describe('Booking service', () => {
@@ -41,7 +40,10 @@ describe('Booking service', () => {
   });
 
   it('rejects a missing ticket category', async () => {
-    const connection = makeConnection([[]]);
+    const connection = makeConnection([
+      [[]],
+      [[]],
+    ]);
     transactionMock.withTransaction.mockImplementationOnce(async (operation) => operation(connection));
 
     await expect(createBooking({
