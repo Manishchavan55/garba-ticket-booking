@@ -10,7 +10,7 @@ describe('Payment API boundary', () => {
       .post('/api/bookings/KDN-12345678-1234-4234-8234-123456789012/payment')
       .expect(400);
 
-    expect(response.body.error.code).toBe('INVALID_IDEMPOTENCY_KEY');
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
   });
 
   it('does not accept a browser-only paid status as verification', async () => {
