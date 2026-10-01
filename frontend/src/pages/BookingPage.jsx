@@ -106,6 +106,7 @@ export default function BookingPage() {
 
     try {
       const result = await createBooking({
+        eventId: Number(id),
         ...form,
         quantity: Number(form.quantity),
         ticketCategoryId: Number(form.ticketCategoryId),
