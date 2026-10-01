@@ -1,9 +1,9 @@
-const ID_PATTERN = /^\d+$/;
+const BOOKING_ID_PATTERN = /^KDN-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_PATTERN = /^[\x20-\x7E]{16,191}$/;
 
 export const validatePaymentBookingId = (req, _res, next) => {
-  if (!ID_PATTERN.test(req.params.bookingId ?? '')) {
-    const error = new Error('Booking ID must be a non-empty public booking identifier');
+  if (!BOOKING_ID_PATTERN.test(req.params.bookingId ?? '')) {
+    const error = new Error('Booking ID is invalid');
     error.statusCode = 400;
     error.code = 'INVALID_BOOKING_ID';
     error.type = 'validation';
