@@ -16,6 +16,17 @@ const makeConnection = (responses) => ({
   }),
 });
 
+const runTransactionMocks = (connections) => {
+  let index = 0;
+  transactionMock.withTransaction.mockImplementation(async (operation) => {
+    const connection = connections[index];
+    index += 1;
+    expect(typeof operation).toBe('function');
+    expect(connection).toBeDefined();
+    return operation(connection);
+  });
+};
+
 const mockProvider = (overrides = {}) => ({
   name: 'test-provider',
   createCheckout: vi.fn().mockResolvedValue({
@@ -53,9 +64,7 @@ describe('Payment service', () => {
       [{ insertId: 44 }],
     ]);
     const provider = mockProvider();
-    transactionMock.withTransaction
-      .mockImplementationOnce(async (operation) => operation(connection))
-      .mockImplementationOnce(async (operation) => operation(makeConnection([[{ affectedRows: 1 }]])));
+    runTransactionMocks([connection, makeConnection([[{ affectedRows: 1 }]])]);
 
     const result = await initiatePayment(pendingBooking.booking_id, 'payment-init-idempotency-1', provider);
 
@@ -72,9 +81,11 @@ describe('Payment service', () => {
   });
 
   it('rejects a nonexistent booking', async () => {
-    const connection = makeConnection([[]]);
+    const connection = makeConnection([
+      [[]],
+    ]);
     const provider = mockProvider();
-    transactionMock.withTransaction.mockImplementationOnce(async (operation) => operation(connection));
+    runTransactionMocks([connection]);
 
     await expect(initiatePayment('KDN-12345678-1234-4234-8234-123456789012', 'payment-init-idempotency-2', provider))
       .rejects.toMatchObject({ statusCode: 404, code: 'BOOKING_NOT_FOUND' });
@@ -82,12 +93,14 @@ describe('Payment service', () => {
   });
 
   it('rejects an already paid booking', async () => {
-    const connection = makeConnection([[{
-      ...pendingBooking,
-      booking_status: 'confirmed',
-    }]]);
+    const connection = makeConnection([[
+      {
+        ...pendingBooking,
+        booking_status: 'confirmed',
+      },
+    ]]);
     const provider = mockProvider();
-    transactionMock.withTransaction.mockImplementationOnce(async (operation) => operation(connection));
+    runTransactionMocks([connection]);
 
     await expect(initiatePayment(pendingBooking.booking_id, 'payment-init-idempotency-3', provider))
       .rejects.toMatchObject({ statusCode: 409, code: 'BOOKING_ALREADY_PAID' });
@@ -117,11 +130,11 @@ describe('Payment service', () => {
         status: 'successful',
       }),
     });
-    transactionMock.withTransaction.mockImplementationOnce(async (operation) => operation(connection));
+    runTransactionMocks([connection]);
 
     await expect(verifyPayment(pendingBooking.booking_id, { providerData: 'opaque' }, provider))
       .rejects.toMatchObject({ statusCode: 409, code: 'PAYMENT_AMOUNT_MISMATCH' });
-    expect(transactionMock.withTransaction).toHaveBeenCalledTimes(1);
+    expect(transactionMock.withTransaction).toHaveBeenCalledTimes(2);
   });
 
   it('rejects a currency mismatch without marking the booking paid', async () => {
@@ -148,10 +161,11 @@ describe('Payment service', () => {
         status: 'successful',
       }),
     });
-    transactionMock.withTransaction.mockImplementationOnce(async (operation) => operation(connection));
+    runTransactionMocks([connection]);
 
     await expect(verifyPayment(pendingBooking.booking_id, { providerData: 'opaque' }, provider))
       .rejects.toMatchObject({ statusCode: 409, code: 'PAYMENT_CURRENCY_MISMATCH' });
+    expect(transactionMock.withTransaction).toHaveBeenCalledTimes(2);
   });
 
   it('confirms the booking only after verified successful payment', async () => {
@@ -171,9 +185,7 @@ describe('Payment service', () => {
     const readConnection = makeConnection([[context]]);
     const writeConnection = makeConnection([[context], [[]], [{ affectedRows: 1 }], [{ affectedRows: 1 }]]);
     const provider = mockProvider();
-    transactionMock.withTransaction
-      .mockImplementationOnce(async (operation) => operation(readConnection))
-      .mockImplementationOnce(async (operation) => operation(writeConnection));
+    runTransactionMocks([readConnection, writeConnection]);
 
     const result = await verifyPayment(pendingBooking.booking_id, { providerData: 'opaque' }, provider);
 
@@ -207,9 +219,7 @@ describe('Payment service', () => {
         status: 'failed',
       }),
     });
-    transactionMock.withTransaction
-      .mockImplementationOnce(async (operation) => operation(readConnection))
-      .mockImplementationOnce(async (operation) => operation(writeConnection));
+    runTransactionMocks([readConnection, writeConnection]);
 
     const result = await verifyPayment(pendingBooking.booking_id, { providerData: 'opaque' }, provider);
 
@@ -235,9 +245,7 @@ describe('Payment service', () => {
     const readConnection = makeConnection([[context]]);
     const writeConnection = makeConnection([[context]]);
     const provider = mockProvider();
-    transactionMock.withTransaction
-      .mockImplementationOnce(async (operation) => operation(readConnection))
-      .mockImplementationOnce(async (operation) => operation(writeConnection));
+    runTransactionMocks([readConnection, writeConnection]);
 
     const result = await verifyPayment(pendingBooking.booking_id, { providerData: 'duplicate' }, provider);
 
