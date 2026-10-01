@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getEvents } from '../api/events.js';
+import { getEvents, getTicketCategories } from '../api/events.js';
 import StatusMessage from '../components/StatusMessage.jsx';
 import TicketCategoryCard from '../components/TicketCategoryCard.jsx';
 import PublicLayout from '../layouts/PublicLayout.jsx';
@@ -59,9 +59,7 @@ export default function HomePage() {
                     <p className="eyebrow">{formatDate(event.event_date)}</p>
                     <h3>{event.name}</h3>
                     <p>{event.venue}</p>
-                    <p>
-                      {formatTime(event.start_time)}{event.end_time ? ` – ${formatTime(event.end_time)}` : ''}
-                    </p>
+                    <p>{formatTime(event.start_time)}{event.end_time ? ` – ${formatTime(event.end_time)}` : ''}</p>
                   </div>
                   <Link className="button" to={`/events/${event.id}`}>View event</Link>
                 </article>
@@ -95,7 +93,7 @@ function TicketPreview({ eventId }) {
   const [status, setStatus] = useState('loading');
 
   useEffect(() => {
-    import('../api/events.js').then(({ getTicketCategories }) => getTicketCategories(eventId))
+    getTicketCategories(eventId)
       .then((data) => {
         setCategories(data);
         setStatus('success');
