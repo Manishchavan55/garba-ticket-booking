@@ -22,4 +22,7 @@ export const config = Object.freeze({
     user: process.env.DB_USER ?? '',
     password: process.env.DB_PASSWORD ?? '',
   }),
+  payment: Object.freeze({
+    provider: process.env.PAYMENT_PROVIDER ?? 'unconfigured',
+  }),
 });
