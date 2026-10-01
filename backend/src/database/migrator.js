@@ -1,55 +1,59 @@
-const fs = require('node:fs/promises');
-const path = require('node:path');
-const { getPool } = require('./connection');
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { getDatabasePool, closeDatabasePool } from './connection.js';
 
-async function migrate() {
-  const pool = getPool();
-  const migrationsDir = path.resolve(__dirname, '../../../database/migrations');
-  const files = (await fs.readdir(migrationsDir)).filter((file) => file.endsWith('.sql')).sort();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const migrationsDirectory = path.resolve(__dirname, '../../../database/migrations');
 
-  const connection = await pool.getConnection();
-  try {
-    await connection.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
+const splitSqlStatements = (sql) => sql
+  .split(';')
+  .map((statement) => statement.trim())
+  .filter(Boolean);
+
+export const migrate = async () => {
+  const pool = getDatabasePool();
+  const migrationFiles = (await fs.readdir(migrationsDirectory, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.sql'))
+    .map((entry) => entry.name)
+    .sort();
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
       filename VARCHAR(255) NOT NULL,
       applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (id),
       UNIQUE KEY uq_schema_migrations_filename (filename)
-    ) ENGINE=InnoDB`);
+    ) ENGINE=InnoDB
+  `);
 
-    for (const file of files) {
-      const [rows] = await connection.query(
-        'SELECT id FROM schema_migrations WHERE filename = ? LIMIT 1',
-        [file],
-      );
-      if (rows.length > 0) continue;
+  const [appliedRows] = await pool.query('SELECT filename FROM schema_migrations');
+  const applied = new Set(appliedRows.map((row) => row.filename));
 
-      const sql = await fs.readFile(path.join(migrationsDir, file), 'utf8');
-      await connection.beginTransaction();
-      try {
-        await connection.query(sql);
-        await connection.query('INSERT INTO schema_migrations (filename) VALUES (?)', [file]);
-        await connection.commit();
-      } catch (error) {
-        await connection.rollback();
-        throw error;
-      }
+  for (const filename of migrationFiles) {
+    if (applied.has(filename)) {
+      continue;
     }
-  } finally {
-    connection.release();
+
+    const sql = await fs.readFile(path.join(migrationsDirectory, filename), 'utf8');
+    const statements = splitSqlStatements(sql);
+
+    console.log(`Applying migration: ${filename}`);
+    for (const statement of statements) {
+      await pool.query(statement);
+    }
+
+    await pool.query('INSERT INTO schema_migrations (filename) VALUES (?)', [filename]);
   }
-}
+};
 
-if (require.main === module) {
-  migrate()
-    .then(() => {
-      console.log('Database migrations completed.');
-      return getPool().end();
-    })
-    .catch((error) => {
-      console.error('Database migration failed:', error.message);
-      process.exitCode = 1;
-    });
+try {
+  await migrate();
+  console.log('Database migrations completed successfully.');
+} catch (error) {
+  console.error('Database migration failed:', error.message);
+  process.exitCode = 1;
+} finally {
+  await closeDatabasePool();
 }
-
-module.exports = { migrate };
