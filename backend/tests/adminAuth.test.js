@@ -114,6 +114,17 @@ describe('Admin authentication API', () => {
     expect(response.body.error.code).toBe('AUTHENTICATION_REQUIRED');
   });
 
+  it('treats malformed session cookies as unauthenticated', async () => {
+    getAuthenticatedAdmin.mockResolvedValue(null);
+
+    const response = await request(app)
+      .get('/api/admin/auth/me')
+      .set('Cookie', 'kdn_admin_session=%E0%A4%A')
+      .expect(401);
+
+    expect(response.body.error.code).toBe('AUTHENTICATION_REQUIRED');
+  });
+
   it('logs out and clears the session cookie', async () => {
     logoutAdmin.mockResolvedValue(undefined);
 
