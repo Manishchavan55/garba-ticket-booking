@@ -1,7 +1,6 @@
 import { getDatabasePool } from './connection.js';
 
-export const withTransaction = async (operation) => {
-  const pool = getDatabasePool();
+export const withTransaction = async (operation, pool = getDatabasePool()) => {
   const connection = await pool.getConnection();
 
   try {

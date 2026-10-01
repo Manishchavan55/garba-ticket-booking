@@ -1,8 +1,9 @@
 import { createApp } from './app.js';
 import { config } from './config/env.js';
+import { logger } from './utils/logger.js';
 
 const app = createApp();
 
 app.listen(config.port, () => {
-  console.log(`KESARIYA API listening on port ${config.port}`);
+  logger.info('KESARIYA API started', { port: config.port, environment: config.nodeEnv });
 });

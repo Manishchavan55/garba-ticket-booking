@@ -11,8 +11,11 @@ export const createApp = () => {
 
   app.disable('x-powered-by');
   app.use(helmet());
-  app.use(cors({ origin: config.corsOrigin }));
-  app.use(express.json({ limit: '1mb' }));
+  app.use(cors({
+    origin: config.corsOrigins,
+    credentials: false,
+  }));
+  app.use(express.json({ limit: config.requestBodyLimit }));
   app.use(validateJsonBody);
 
   app.use('/api', apiRoutes);

@@ -1,5 +1,11 @@
-import { getHealthStatus } from '../services/health.service.js';
+import { getHealthStatus, getReadinessStatus } from '../services/health.service.js';
+import { sendSuccess } from '../utils/response.js';
 
 export const health = (_req, res) => {
-  res.status(200).json(getHealthStatus());
+  sendSuccess(res, getHealthStatus());
+};
+
+export const readiness = async (_req, res) => {
+  const status = await getReadinessStatus();
+  sendSuccess(res, status);
 };
