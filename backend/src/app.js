@@ -13,7 +13,7 @@ export const createApp = () => {
   app.use(helmet());
   app.use(cors({
     origin: config.corsOrigins,
-    credentials: false,
+    credentials: true,
   }));
   app.use(express.json({ limit: config.requestBodyLimit }));
   app.use(validateJsonBody);
