@@ -98,6 +98,7 @@ Request body:
 
 ```json
 {
+  "eventId": 1,
   "ticketCategoryId": 1,
   "quantity": 2,
   "customerName": "Customer Name",
@@ -105,6 +106,8 @@ Request body:
   "customerPhone": "+919876543210"
 }
 ```
+
+`eventId` must identify the event whose ticket category is being booked. The backend verifies that the selected category belongs to that event inside the transaction.
 
 The backend loads the ticket category from MySQL inside the booking transaction, checks that its `availability_status` is `available`, reads the database price, calculates the amount, and stores the authoritative amount. Client-supplied price or total values are not accepted.
 
@@ -132,7 +135,7 @@ A successful booking response does not mean:
 - a QR code was generated
 - an email or WhatsApp message was sent
 
-Validation errors return `400`. A missing ticket category returns `404` with `TICKET_CATEGORY_NOT_FOUND`. An unavailable category returns `409` with `TICKET_CATEGORY_UNAVAILABLE`.
+Validation errors return `400`. A missing or mismatched ticket category returns `404` with `TICKET_CATEGORY_NOT_FOUND`. An unavailable category returns `409` with `TICKET_CATEGORY_UNAVAILABLE`.
 
 The API does not provide a public booking lookup endpoint in Phase 5 because authentication/customer access tokens are not yet available. Numeric database IDs are never exposed as a booking lookup mechanism.
 
