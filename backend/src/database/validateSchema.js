@@ -1,3 +1,4 @@
+import { config } from '../config/env.js';
 import { getDatabasePool, closeDatabasePool } from './connection.js';
 
 const requiredTables = [
@@ -28,15 +29,9 @@ const requiredUniqueIndexes = [
   ['admin_users', 'uq_admin_users_email'],
 ];
 
-const assertRowsExist = (rows, description) => {
-  if (rows.length === 0) {
-    throw new Error(`Schema validation failed: ${description}`);
-  }
-};
-
 try {
   const pool = getDatabasePool();
-  const databaseName = pool.config.connectionConfig.database;
+  const databaseName = config.database.name;
 
   const [tables] = await pool.query(
     `SELECT TABLE_NAME
@@ -82,12 +77,10 @@ try {
     throw new Error(`Missing required unique constraints: ${missingUniqueIndexes.join(', ')}`);
   }
 
-  assertRowsExist(tables, 'no application tables were found');
   console.log('Database schema validation succeeded.');
-  await closeDatabasePool();
-  process.exit(0);
 } catch (error) {
   console.error('Database schema validation failed:', error.message);
+  process.exitCode = 1;
+} finally {
   await closeDatabasePool();
-  process.exit(1);
 }
