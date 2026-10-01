@@ -1,5 +1,9 @@
 import { withTransaction } from '../database/transaction.js';
 import { getPaymentProvider } from '../payments/providerFactory.js';
+import {
+  issueTicketsForConfirmedBookingInTransaction,
+  presentTicketData,
+} from './ticket.service.js';
 
 const PAYABLE_BOOKING_STATUS = 'pending';
 const PAID_BOOKING_STATUS = 'confirmed';
@@ -213,7 +217,13 @@ const applyVerifiedPayment = async (connection, context, normalizedPayment) => {
   }
 
   if (context.payment_status === PAYMENT_SUCCESSFUL || context.booking_status === PAID_BOOKING_STATUS) {
-    return { status: PAYMENT_SUCCESSFUL, bookingStatus: PAID_BOOKING_STATUS, idempotent: true };
+    const tickets = await issueTicketsForConfirmedBookingInTransaction(connection, context.booking_id);
+    return {
+      status: PAYMENT_SUCCESSFUL,
+      bookingStatus: PAID_BOOKING_STATUS,
+      idempotent: true,
+      tickets: tickets.tickets,
+    };
   }
 
   if (normalizedPayment.status === PAYMENT_FAILED) {
@@ -262,7 +272,20 @@ const applyVerifiedPayment = async (connection, context, normalizedPayment) => {
     WHERE id = ? AND booking_status = ?
   `, [PAID_BOOKING_STATUS, context.booking_id, PAYABLE_BOOKING_STATUS]);
 
-  return { status: PAYMENT_SUCCESSFUL, bookingStatus: PAID_BOOKING_STATUS, idempotent: false };
+  const tickets = await issueTicketsForConfirmedBookingInTransaction(connection, context.booking_id);
+
+  return {
+    status: PAYMENT_SUCCESSFUL,
+    bookingStatus: PAID_BOOKING_STATUS,
+    idempotent: false,
+    tickets: tickets.tickets,
+  };
+};
+
+const presentPaymentResult = async (result) => {
+  if (!result.tickets) return result;
+  const presented = await presentTicketData({ tickets: result.tickets });
+  return { ...result, tickets: presented.tickets };
 };
 
 export const verifyPayment = async (bookingId, providerPayload, provider = getPaymentProvider()) => {
@@ -285,10 +308,12 @@ export const verifyPayment = async (bookingId, providerPayload, provider = getPa
     payload: providerPayload,
   });
 
-  return withTransaction(async (connection) => {
+  const result = await withTransaction(async (connection) => {
     const lockedContext = await loadPaymentContext(connection, bookingId);
     return applyVerifiedPayment(connection, lockedContext, normalized);
   });
+
+  return presentPaymentResult(result);
 };
 
 export const processWebhook = async (providerPayload, provider = getPaymentProvider()) => {
@@ -301,10 +326,12 @@ export const processWebhook = async (providerPayload, provider = getPaymentProvi
     throw error;
   }
 
-  return withTransaction(async (connection) => {
+  const result = await withTransaction(async (connection) => {
     const context = await loadPaymentContext(connection, normalized.bookingId);
     return applyVerifiedPayment(connection, context, normalized);
   });
+
+  return presentPaymentResult(result);
 };
 
 export const paymentStates = Object.freeze({
