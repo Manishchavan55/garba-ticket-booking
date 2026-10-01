@@ -4,7 +4,17 @@ const poolMock = vi.hoisted(() => ({
   getDatabasePool: vi.fn(),
 }));
 
+const ticketServiceMock = vi.hoisted(() => ({
+  issueTicketsForConfirmedBookingInTransaction: vi.fn().mockResolvedValue({
+    bookingId: 'KDN-12345678-1234-4234-8234-123456789012',
+    quantity: 1,
+    tickets: [],
+  }),
+  presentTicketData: vi.fn(async (result) => result),
+}));
+
 vi.mock('../src/database/connection.js', () => poolMock);
+vi.mock('../src/services/ticket.service.js', () => ticketServiceMock);
 
 const { initiatePayment, verifyPayment } = await import('../src/services/payment.service.js');
 
@@ -101,7 +111,11 @@ const paymentContext = (overrides = {}) => ({
 });
 
 describe('Payment service', () => {
-  beforeEach(() => poolMock.getDatabasePool.mockReset());
+  beforeEach(() => {
+    poolMock.getDatabasePool.mockReset();
+    ticketServiceMock.issueTicketsForConfirmedBookingInTransaction.mockClear();
+    ticketServiceMock.presentTicketData.mockClear();
+  });
 
   it('initiates checkout using the authoritative booking amount', async () => {
     const connection = makeConnection({ booking: pendingBooking });
@@ -167,6 +181,7 @@ describe('Payment service', () => {
       .rejects.toMatchObject({ statusCode: 409, code: 'PAYMENT_AMOUNT_MISMATCH' });
     expect(readConnection.commit).toHaveBeenCalledTimes(1);
     expect(writeConnection.rollback).toHaveBeenCalledTimes(1);
+    expect(ticketServiceMock.issueTicketsForConfirmedBookingInTransaction).not.toHaveBeenCalled();
   });
 
   it('rejects a currency mismatch without marking the booking paid', async () => {
@@ -186,9 +201,10 @@ describe('Payment service', () => {
     await expect(verifyPayment(pendingBooking.booking_id, { providerData: 'opaque' }, provider))
       .rejects.toMatchObject({ statusCode: 409, code: 'PAYMENT_CURRENCY_MISMATCH' });
     expect(writeConnection.rollback).toHaveBeenCalledTimes(1);
+    expect(ticketServiceMock.issueTicketsForConfirmedBookingInTransaction).not.toHaveBeenCalled();
   });
 
-  it('confirms the booking only after verified successful payment', async () => {
+  it('confirms the booking and issues tickets only after verified successful payment', async () => {
     const readConnection = makeConnection({ context: paymentContext() });
     const writeConnection = makeConnection({ context: paymentContext() });
     const provider = mockProvider();
@@ -196,13 +212,14 @@ describe('Payment service', () => {
 
     const result = await verifyPayment(pendingBooking.booking_id, { providerData: 'opaque' }, provider);
 
-    expect(result).toEqual({ status: 'successful', bookingStatus: 'confirmed', idempotent: false });
+    expect(result).toEqual({ status: 'successful', bookingStatus: 'confirmed', idempotent: false, tickets: [] });
+    expect(ticketServiceMock.issueTicketsForConfirmedBookingInTransaction).toHaveBeenCalledWith(writeConnection, 10);
     expect(writeConnection.execute.mock.calls.some(([sql]) => sql.includes('UPDATE payments'))).toBe(true);
     expect(writeConnection.execute.mock.calls.some(([sql]) => sql.includes('UPDATE bookings'))).toBe(true);
     expect(writeConnection.commit).toHaveBeenCalledTimes(1);
   });
 
-  it('records a failed payment without confirming the booking', async () => {
+  it('records a failed payment without confirming the booking or issuing tickets', async () => {
     const readConnection = makeConnection({ context: paymentContext() });
     const writeConnection = makeConnection({ context: paymentContext() });
     const provider = mockProvider({
@@ -219,11 +236,12 @@ describe('Payment service', () => {
     const result = await verifyPayment(pendingBooking.booking_id, { providerData: 'opaque' }, provider);
 
     expect(result).toEqual({ status: 'failed', bookingStatus: 'pending', idempotent: false });
+    expect(ticketServiceMock.issueTicketsForConfirmedBookingInTransaction).not.toHaveBeenCalled();
     expect(writeConnection.execute.mock.calls.some(([sql]) => sql.includes('UPDATE payments'))).toBe(true);
     expect(writeConnection.commit).toHaveBeenCalledTimes(1);
   });
 
-  it('treats a repeated successful verification as idempotent', async () => {
+  it('treats a repeated successful verification as idempotent and reuses tickets', async () => {
     const context = paymentContext({ payment_status: 'successful', booking_status: 'confirmed' });
     const readConnection = makeConnection({ context });
     const writeConnection = makeConnection({ context });
@@ -232,7 +250,8 @@ describe('Payment service', () => {
 
     const result = await verifyPayment(pendingBooking.booking_id, { providerData: 'duplicate' }, provider);
 
-    expect(result).toEqual({ status: 'successful', bookingStatus: 'confirmed', idempotent: true });
+    expect(result).toEqual({ status: 'successful', bookingStatus: 'confirmed', idempotent: true, tickets: [] });
+    expect(ticketServiceMock.issueTicketsForConfirmedBookingInTransaction).toHaveBeenCalledWith(writeConnection, 10);
     expect(writeConnection.commit).toHaveBeenCalledTimes(1);
   });
 });
