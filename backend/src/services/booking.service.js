@@ -31,6 +31,7 @@ const getExistingBooking = async (connection, idempotencyKey) => {
     FROM bookings
     WHERE idempotency_key = ?
     LIMIT 1
+    FOR UPDATE
   `, [idempotencyKey]);
 
   return rows[0] ?? null;
