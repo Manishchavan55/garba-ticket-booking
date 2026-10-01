@@ -125,7 +125,7 @@ const issueTicketsInTransaction = async (connection, bookingDbId) => {
   };
 };
 
-const addQrImages = async (result) => ({
+export const presentTicketData = async (result) => ({
   ...result,
   tickets: await Promise.all(result.tickets.map(async (ticket) => ({
     ...ticket,
@@ -139,7 +139,7 @@ const addQrImages = async (result) => ({
 
 export const issueTicketsForConfirmedBooking = async (bookingDbId) => {
   const result = await withTransaction((connection) => issueTicketsInTransaction(connection, bookingDbId));
-  return addQrImages(result);
+  return presentTicketData(result);
 };
 
 export const issueTicketsForConfirmedBookingInTransaction = (connection, bookingDbId) => (
