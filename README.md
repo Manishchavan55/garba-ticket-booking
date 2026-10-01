@@ -21,7 +21,7 @@ The repository is a monorepo with independently owned frontend, backend, databas
 ```text
 .
 ├── backend/          # Node.js/Express API and database layer
-├── frontend/         # React/Vite public website
+├── frontend/         # React/Vite public website and admin auth foundation
 ├── database/         # Database architecture and migrations
 ├── docs/             # Architecture and API documentation
 ├── .env.example      # Non-secret environment reference
@@ -94,7 +94,7 @@ The public React website provides:
 /events/:id/book
 ```
 
-The backend payment boundary remains provider-agnostic. When a real provider is selected, the trusted sequence is:
+The trusted sequence is:
 
 ```text
 Booking created
@@ -173,7 +173,95 @@ unused -> used
 
 A second verification returns `409 QR_TICKET_ALREADY_USED`. Invalid or nonexistent identifiers are rejected. Admin authentication and camera/scanner UI are not part of Phase 7.
 
-## Phase 2/5 database setup
+## Phase 8 admin authentication
+
+Phase 8 adds only the security foundation for the future admin panel. No admin business modules are implemented.
+
+### Authentication strategy
+
+The application uses a **server-side opaque session** rather than JWTs or long-lived browser storage. The server generates a cryptographically random session token, stores only its SHA-256 hash in MySQL, and sends the raw token only as an HttpOnly cookie.
+
+Default session lifetime:
+
+```text
+8 hours
+```
+
+The session cookie is:
+
+- HttpOnly
+- SameSite=Lax
+- Secure in production
+- scoped to `/api/admin`
+- explicitly invalidated on logout
+
+Passwords are hashed with Node.js `crypto.scrypt` using a per-password random salt. Passwords and password hashes are never returned to clients.
+
+### Admin authentication API
+
+```text
+POST /api/admin/auth/login
+GET  /api/admin/auth/me
+POST /api/admin/auth/logout
+```
+
+Login accepts a username or email plus password. Invalid, nonexistent, and inactive accounts use the same generic `401 INVALID_CREDENTIALS` response.
+
+`/api/admin/auth/me` requires a valid, active, unexpired, non-revoked session.
+
+Logout revokes the server-side session and clears the HttpOnly cookie.
+
+### Authorization boundary
+
+Backend protection is enforced through reusable:
+
+```text
+authenticateAdmin
+      ↓
+authorizeAdmin(policy)
+      ↓
+admin controller
+```
+
+The current policy is authenticated-admin access only. The centralized authorization layer is designed so future roles/permissions can be added without scattering role checks through controllers.
+
+### CSRF/CORS
+
+State-changing admin requests require an `Origin` matching the configured frontend `CORS_ORIGIN`. The backend uses credentialed CORS for configured origins only; wildcard origins are not used.
+
+The cookie's `SameSite=Lax` policy provides an additional browser-level cross-site restriction. The read-only `/me` endpoint does not require CSRF protection.
+
+### Login abuse protection
+
+A lightweight in-process limiter allows five failed attempts per fifteen-minute window by default. This is intentionally not described as a distributed protection mechanism.
+
+### Admin account setup
+
+No default administrator is created by migrations or seed data.
+
+For development or controlled operational setup:
+
+```bash
+npm --workspace backend run admin:create
+```
+
+Supply these backend-only environment values:
+
+```text
+ADMIN_BOOTSTRAP_USERNAME=...
+ADMIN_BOOTSTRAP_EMAIL=...
+ADMIN_BOOTSTRAP_PASSWORD=...
+```
+
+Production additionally requires:
+
+```text
+ADMIN_BOOTSTRAP_CONFIRM=CREATE_ADMIN
+```
+
+Never commit real credentials.
+
+## Database setup
 
 Create an empty MySQL database using your MySQL administration tooling, then configure `backend/.env`:
 
@@ -209,11 +297,11 @@ Seed development data only when appropriate:
 npm run db:seed
 ```
 
-Phase 5 added `002_booking_idempotency.sql`. Phase 6 and Phase 7 do not add or modify database schema because the existing `payments` and `qr_tickets` tables already contain the required fields and constraints.
+Phase 5 added `002_booking_idempotency.sql`. Phase 8 adds `003_admin_auth_sessions.sql` because the existing `admin_users` table does not contain server-side session state required for secure expiration and revocation.
 
 ## Inventory limitation
 
-The source requirements define ticket-category availability status but do not define numeric capacity/quota. Phase 5 therefore does not invent ticket quantities or claim finite inventory enforcement. Phase 7 uses the persisted booking quantity only for ticket cardinality and does not introduce inventory rules.
+The source requirements define ticket-category availability status but do not define numeric capacity/quota. The project therefore does not invent ticket quantities or claim finite inventory enforcement.
 
 ## Testing and validation
 
@@ -241,32 +329,47 @@ Frontend production build:
 npm --workspace frontend run build
 ```
 
-## Phase 7 status
+## Phase 8 status
 
 Implemented:
 
-- Dedicated transactional ticket issuance service
-- Payment-success → confirmed booking → ticket issuance integration
-- One-to-many ticket cardinality based on persisted booking quantity
-- Server-side cryptographically random QR identifiers
-- Existing `qr_tickets` schema and unique identifier constraint reused without migration
-- Ticket issuance idempotency under repeated payment verification
-- Server-side QR image generation from the opaque identifier
-- Transactional one-time QR verification
-- `POST /api/tickets/verify` API boundary
-- Invalid/used/not-eligible QR rejection
-- Backend ticket/QR automated tests
-- Updated API and architecture documentation
+- Server-side opaque admin sessions
+- scrypt password hashing
+- Generic invalid-credential handling
+- Active-account enforcement
+- Login/logout/me APIs
+- Server-side logout revocation
+- Session expiration
+- Reusable authentication middleware
+- Centralized authorization boundary
+- Same-origin CSRF defense for state-changing admin endpoints
+- Credentialed configured-origin CORS
+- Lightweight login rate limiting
+- Security event logging without credentials/tokens/passwords
+- Development/controlled admin bootstrap command without default credentials
+- React admin login page
+- React admin authentication context
+- Protected `/admin` route foundation
+- No admin business dashboard/modules
 
-Intentionally not implemented in Phase 7:
+Not implemented in Phase 8:
 
-- Production payment gateway selection or credentials
-- Customer authentication/access tokens
-- Admin authentication/authorization
-- Admin scanning UI/camera workflow
-- Email/WhatsApp/SMS/push notifications
-- Inventory/capacity rules
-- Gallery/sponsors/inquiries/reporting
-- Maps
+- Event CRUD
+- Ticket/category CRUD
+- Booking management
+- Payment management
+- QR management/scanner UI
+- Gallery management
+- Sponsor management
+- Inquiry management
+- Reports/analytics
+- Notifications
+- Google Maps/WhatsApp/email integrations
+- Inventory/capacity logic
+- Phase 9 features
 
-These remain later-phase work.
+## Security limitations
+
+The login rate limiter is in-process and therefore not suitable as the sole brute-force defense for a horizontally scaled deployment. Production infrastructure should add a shared rate limiter or upstream WAF/control.
+
+Cookie authentication assumes the frontend and API are deployed within a browser-compatible same-site arrangement under the configured origin policy. A cross-site deployment requiring `SameSite=None` would need an explicit security review and corresponding CSRF design.
