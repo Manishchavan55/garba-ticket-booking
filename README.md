@@ -21,7 +21,7 @@ The repository is a monorepo with independently owned frontend, backend, databas
 ```text
 .
 ├── backend/          # Node.js/Express API and database layer
-├── frontend/         # React/Vite application shell
+├── frontend/         # React/Vite public website
 ├── database/         # Database architecture and migrations
 ├── docs/             # Architecture and API documentation
 ├── .env.example      # Non-secret environment reference
@@ -84,41 +84,26 @@ npm --workspace frontend run dev
 
 Vite serves the application on its configured local development port, normally `http://localhost:5173`.
 
-## Phase 3 API foundation
+## Phase 4 public website
 
-Current backend endpoints:
+The public React website currently provides:
 
 ```text
-GET /api/health
-GET /api/health/ready
+/
+/events/:id
 ```
 
-`/api/health` confirms that the application process is running and deliberately does not depend on MySQL.
+The public API currently provides:
 
-`/api/health/ready` verifies that the configured MySQL dependency is reachable.
-
-API responses use one consistent JSON convention:
-
-```json
-{
-  "success": true,
-  "data": {}
-}
+```text
+GET /api/events
+GET /api/events/:id
+GET /api/events/:eventId/ticket-categories
 ```
 
-Errors use:
+The public pages retrieve event and ticket-category data from the backend API. Event details, venue, guidelines, prices, and availability are not duplicated as frontend business data.
 
-```json
-{
-  "success": false,
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Human-readable message"
-  }
-}
-```
-
-See `docs/api.md` for the current API contract and status-code conventions.
+The booking call-to-action is intentionally disabled/placeholder-only. No customer information, booking, inventory reservation, payment, QR ticket, or confirmation flow exists yet.
 
 ## Phase 2 database setup
 
@@ -182,31 +167,33 @@ Frontend production build:
 npm --workspace frontend run build
 ```
 
-## Phase 3 status
+## Phase 4 status
 
 Implemented:
 
-- Consistent API response and error conventions
-- Centralized error classification/handling
-- Reusable request validation infrastructure
-- Async error propagation through `asyncHandler`
-- Controlled CORS and Helmet security headers
-- Configurable request body limit
-- Safe structured backend logging
-- Application health and database readiness endpoints
-- Reusable MySQL transaction helper
-- Backend API documentation
-- Expanded backend tests for health, 404, malformed JSON, validation, and transaction behavior
+- Read-only public event API
+- Public ticket-category API
+- Public event and ticket service layer using parameterized MySQL queries
+- Public React home page
+- Public event detail route
+- Reusable ticket-category component
+- Loading, error, empty, and success states
+- Responsive public-site styling
+- Basic page titles and event meta descriptions
+- Semantic headings, links, and accessible disabled booking placeholder
+- API documentation for public endpoints
 
-Intentionally not implemented in Phase 3:
+Intentionally not implemented in Phase 4:
 
-- Event management API
-- Ticket management/inventory API
-- Booking API/business rules
-- Payment gateway/webhooks/verification
+- Booking creation
+- Customer information collection
+- Inventory reservation
+- Payment gateway/verification
 - QR generation/scanning/verification
 - Admin authentication/authorization/dashboard
-- Gallery/sponsor/inquiry APIs
+- Gallery management
+- Sponsor management
+- Inquiry management
 - Reports/analytics
 - Email/WhatsApp/Google Maps
 
