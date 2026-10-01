@@ -84,7 +84,7 @@ npm --workspace frontend run dev
 
 Vite serves the application on its configured local development port, normally `http://localhost:5173`.
 
-## Phase 6 public payment flow
+## Public flow through Phase 7
 
 The public React website provides:
 
@@ -94,9 +94,7 @@ The public React website provides:
 /events/:id/book
 ```
 
-After a booking is created, the booking page exposes a payment-initiation state. The browser may be redirected to a configured provider checkout when one exists.
-
-The backend remains authoritative:
+The backend payment boundary remains provider-agnostic. When a real provider is selected, the trusted sequence is:
 
 ```text
 Booking created
@@ -110,9 +108,13 @@ Trusted backend verification
 Payment successful
       ↓
 Booking confirmed
+      ↓
+TicketService
+      ↓
+QR tickets issued exactly once
 ```
 
-The browser cannot mark a payment successful. QR/ticket issuance begins only in a later phase.
+The browser cannot mark a payment successful. QR ticket issuance is triggered by the trusted payment-success boundary, not by frontend state.
 
 ## Payment provider status
 
@@ -143,6 +145,33 @@ Payment initiation requires an `Idempotency-Key` header. The backend obtains amo
 Payment confirmation uses the existing `payments` table and transaction infrastructure. Amount/currency mismatches are rejected, duplicate provider references are rejected, and repeated successful verification is idempotent.
 
 Provider-specific webhook signatures and credentials remain intentionally unimplemented until provider selection.
+
+## Ticket and QR API
+
+```text
+POST /api/tickets/verify
+```
+
+Successful payment confirmation creates the persisted QR-ticket records according to the booking's stored `quantity`.
+
+Examples:
+
+```text
+quantity = 1 -> 1 QR ticket
+quantity = 3 -> 3 QR tickets
+```
+
+QR identifiers are server-generated cryptographically random opaque values. The QR payload contains only that identifier, not customer/payment data. The backend generates a PNG data URL for customer-facing ticket data using the QR identifier.
+
+Ticket issuance is domain-idempotent: repeated payment verification or webhook processing reuses existing ticket records and does not create a second ticket batch.
+
+QR verification is transactional and one-time-use:
+
+```text
+unused -> used
+```
+
+A second verification returns `409 QR_TICKET_ALREADY_USED`. Invalid or nonexistent identifiers are rejected. Admin authentication and camera/scanner UI are not part of Phase 7.
 
 ## Phase 2/5 database setup
 
@@ -180,11 +209,11 @@ Seed development data only when appropriate:
 npm run db:seed
 ```
 
-Phase 5 added `002_booking_idempotency.sql`. Phase 6 does not add a payment table or modify the existing payment schema.
+Phase 5 added `002_booking_idempotency.sql`. Phase 6 and Phase 7 do not add or modify database schema because the existing `payments` and `qr_tickets` tables already contain the required fields and constraints.
 
 ## Inventory limitation
 
-The source requirements define ticket-category availability status but do not define numeric capacity/quota. Phase 5 therefore does not invent ticket quantities or claim finite inventory enforcement. Payment does not introduce an inventory system.
+The source requirements define ticket-category availability status but do not define numeric capacity/quota. Phase 5 therefore does not invent ticket quantities or claim finite inventory enforcement. Phase 7 uses the persisted booking quantity only for ticket cardinality and does not introduce inventory rules.
 
 ## Testing and validation
 
@@ -212,38 +241,32 @@ Frontend production build:
 npm --workspace frontend run build
 ```
 
-## Phase 6 status
+## Phase 7 status
 
 Implemented:
 
-- Provider-agnostic payment-provider interface boundary
-- Fail-closed unconfigured provider
-- Payment initiation endpoint
-- Payment verification endpoint boundary
-- Generic webhook architecture boundary
-- Existing `payments` table integration
-- Authoritative booking amount/currency verification
-- Payment/booking state separation
-- Transactional successful-payment transition
-- Payment idempotency and provider-reference uniqueness handling
-- Duplicate verification handling
-- Payment failure handling without booking confirmation
-- React payment initiation state
-- Provider checkout redirect support when a real provider is configured
-- Backend payment tests with an isolated test provider
-- Payment API documentation
+- Dedicated transactional ticket issuance service
+- Payment-success → confirmed booking → ticket issuance integration
+- One-to-many ticket cardinality based on persisted booking quantity
+- Server-side cryptographically random QR identifiers
+- Existing `qr_tickets` schema and unique identifier constraint reused without migration
+- Ticket issuance idempotency under repeated payment verification
+- Server-side QR image generation from the opaque identifier
+- Transactional one-time QR verification
+- `POST /api/tickets/verify` API boundary
+- Invalid/used/not-eligible QR rejection
+- Backend ticket/QR automated tests
+- Updated API and architecture documentation
 
-Intentionally not implemented in Phase 6:
+Intentionally not implemented in Phase 7:
 
-- Production payment gateway selection
-- Production payment credentials
-- Provider-specific checkout SDK
-- Provider-specific webhook signature verification
-- Fake production payment success
-- QR generation/scanning/verification
-- Ticket issuance
+- Production payment gateway selection or credentials
+- Customer authentication/access tokens
+- Admin authentication/authorization
+- Admin scanning UI/camera workflow
 - Email/WhatsApp/SMS/push notifications
-- Admin authentication/authorization/dashboard
-- Inventory/capacity invention
+- Inventory/capacity rules
+- Gallery/sponsors/inquiries/reporting
+- Maps
 
 These remain later-phase work.
