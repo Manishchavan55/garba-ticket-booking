@@ -3,7 +3,7 @@
 ## Responsibilities
 
 - `frontend/`: browser-facing React application. It contains no database credentials or server secrets.
-- `backend/`: Express API, configuration, middleware, validation, controller/service boundaries, MySQL connection/transaction layer, payment-provider abstraction, and ticket/QR services.
+- `backend/`: Express API, configuration, middleware, validation, controller/service boundaries, MySQL connection/transaction layer, payment-provider abstraction, ticket/QR services, and admin authentication/session boundary.
 - `database/`: database architecture documentation and ordered SQL migrations.
 - `docs/`: architecture and API documentation.
 
@@ -15,11 +15,15 @@ Browser -> React -> API client -> Express route -> controller -> service -> data
                                       +-> PaymentService -> PaymentProvider -> selected provider
                                       |
                                       +-> TicketService -> QR ticket persistence
+                                      |
+                                      +-> AdminAuth -> server-side session -> admin_users/admin_sessions
 ```
 
 Payment-provider-specific behavior is isolated behind the provider abstraction. Controllers and booking code do not contain gateway-specific API calls.
 
 Ticket issuance and QR verification are isolated in the ticket service. Controllers do not create QR records directly.
+
+Admin authentication is isolated behind the admin authentication service and reusable authentication/authorization middleware. Admin business modules are not part of this phase.
 
 Cross-cutting concerns are kept outside controllers through configuration, middleware, validation, error handling, logging, and reusable database utilities.
 
@@ -60,7 +64,7 @@ The existing `mysql2` pool remains the single database connection mechanism. Fut
 
 `withTransaction()` provides a reusable `BEGIN -> operation -> COMMIT` / `ROLLBACK` lifecycle and always releases the connection.
 
-Phase 6 uses this transaction infrastructure for payment confirmation. Phase 7 uses the same transaction infrastructure for ticket issuance and one-time QR verification.
+Phase 6 uses this transaction infrastructure for payment confirmation. Phase 7 uses the same transaction infrastructure for ticket issuance and one-time QR verification. Phase 8 uses it for login session creation and logout revocation.
 
 ## Payment architecture
 
@@ -153,47 +157,129 @@ TicketService.verifyQrTicket()
 
 The one-time-use mutation is transactional. A second attempt returns a conflict and does not consume the ticket again.
 
-Phase 7 provides the backend verification API foundation but does not add scanning-camera UI or admin authorization. Those require the later authentication/admin and venue workflow phases.
+## Admin authentication architecture
 
-## Payment idempotency
-
-The existing `payments.idempotency_key` unique constraint supports safe repeated initiation requests. The existing unique `(provider, gateway_transaction_reference)` constraint protects provider-reference uniqueness.
-
-Repeated successful verification is treated as an idempotent result. Ticket issuance is also idempotent at the domain level and does not depend on an HTTP idempotency header.
-
-## Security baseline
-
-- Helmet security headers are enabled.
-- CORS is driven by backend environment configuration and is not configured with wildcard origins.
-- Request bodies have a configurable size limit.
-- JSON parsing failures are normalized centrally.
-- Backend validation is reusable through `validateBody()`.
-- Database credentials remain backend-only.
-- Future payment/provider credentials remain backend-only.
-- Provider signatures and authorization headers are not logged.
-- QR identifiers are not logged.
-- SQL errors are not returned to API consumers.
-- SQL execution in the database layer uses parameterized queries where values are supplied.
-- Authentication and authorization are intentionally not implemented yet.
-
-## Phase 2 database model
+Phase 8 uses a **server-side opaque session** rather than JWTs or browser-stored access tokens. This is the simplest stateful design for the current React + Express application because logout/revocation can be enforced by the backend without distributing long-lived bearer credentials to JavaScript.
 
 ```text
- events
-   |
-   └── ticket_categories
-          |
-          └── bookings
-                 ├── payments
-                 └── qr_tickets
-
- gallery
- sponsors
- inquiries
- admin_users
+React admin login
+      |
+      v
+POST /api/admin/auth/login
+      |
+      v
+AdminAuthService
+      |
+      +--> admin_users lookup
+      +--> scrypt password verification
+      +--> create random session token
+      +--> SHA-256 token hash persisted in admin_sessions
+      +--> update last_login_at
+      |
+      v
+HttpOnly session cookie
 ```
 
-Phase 6 uses the existing `payments` table. Phase 7 uses the existing `qr_tickets` table and its unique QR identifier constraint.
+The browser never receives the password hash or the raw session token in a JSON response. The raw session token exists only in the HttpOnly cookie. The database stores only its SHA-256 hash.
+
+### Session behavior
+
+Default session lifetime:
+
+```text
+8 hours
+```
+
+Configured with:
+
+```text
+ADMIN_SESSION_TTL_HOURS
+```
+
+The cookie is:
+
+- `HttpOnly`
+- `SameSite=Lax`
+- `Secure` in production
+- scoped to `/api/admin`
+- explicitly expired on logout
+
+The backend checks the session hash, `revoked_at`, `expires_at`, and administrator `is_active` state on `/me` and every protected admin request.
+
+Logout writes `revoked_at` server-side; it is not only a frontend state change.
+
+### Password security
+
+Passwords are stored using Node.js `crypto.scrypt` with a per-password random salt. The encoded password format stores the scrypt parameters, salt, and derived key; plaintext passwords are never persisted.
+
+Login uses a generic `INVALID_CREDENTIALS` response for nonexistent, inactive, and incorrect-password accounts to avoid account enumeration.
+
+### Authorization foundation
+
+`authenticateAdmin` establishes the authenticated administrator identity. `authorizeAdmin(policy)` is the centralized authorization boundary for future role/permission policies. Current Phase 8 policy is authenticated-admin access only; no unnecessary roles are invented.
+
+Future admin controllers should compose these middleware layers rather than scattering role checks through controllers.
+
+### CSRF and CORS
+
+Because authentication uses a browser cookie, state-changing admin endpoints use a concrete same-origin defense:
+
+- `SameSite=Lax` on the session cookie
+- state-changing admin requests require an `Origin` header matching the configured `CORS_ORIGIN`
+- CORS uses the configured frontend origin(s) and `credentials: true`
+- wildcard `Access-Control-Allow-Origin: *` is not used with credentials
+
+The current protected GET `/me` endpoint does not require CSRF protection because it is read-only.
+
+### Login abuse protection
+
+A lightweight in-process IP-based limiter allows five failed login attempts per fifteen-minute window by default. It is intentionally not described as distributed or cluster-safe. A multi-instance production deployment will require a shared rate-limit mechanism or an upstream control.
+
+### Security logging
+
+The existing logger records successful and failed admin authentication events without passwords, password hashes, session tokens, cookies, or sensitive request bodies. The logger's metadata sanitizer also excludes fields matching password/secret/token/authorization/credential patterns.
+
+## Phase 8 database model
+
+```text
+admin_users
+    |
+    +---- admin_sessions
+```
+
+The existing `admin_users` table already contains identity, password-hash, active-state, and last-login fields. It does not contain server-side session state, so migration `003_admin_auth_sessions.sql` adds `admin_sessions` with:
+
+- administrator foreign key
+- hashed opaque session token
+- expiration timestamp
+- revocation timestamp
+- uniqueness and lookup indexes
+
+Existing migrations are not edited.
+
+## Admin API boundary
+
+```text
+POST /api/admin/auth/login
+POST /api/admin/auth/logout
+GET  /api/admin/auth/me
+```
+
+Only authentication and the protected identity endpoint are implemented in Phase 8. The `/api/admin` namespace is reserved for later protected administration modules.
+
+## Admin account creation
+
+No production administrator is seeded automatically and no default password exists in seed data.
+
+The deliberate bootstrap command is:
+
+```bash
+npm --workspace backend run admin:create
+```
+
+It reads `ADMIN_BOOTSTRAP_USERNAME`, `ADMIN_BOOTSTRAP_EMAIL`, and `ADMIN_BOOTSTRAP_PASSWORD` from the backend environment. In production it additionally requires `ADMIN_BOOTSTRAP_CONFIRM=CREATE_ADMIN`.
+
+Real credentials must never be committed to `.env.example`, seed files, source code, or documentation.
 
 ## Migration process
 
@@ -213,8 +299,10 @@ Schema validation is available with:
 npm run db:validate
 ```
 
-Phase 7 requires no schema migration because the Phase 2 `qr_tickets` table already contains booking association, opaque QR identifier, verification status, verification timestamp, used timestamp, and uniqueness constraints.
+Phase 8 adds `003_admin_auth_sessions.sql` because the existing `admin_users` table cannot provide server-side session creation, expiration, or revocation on its own.
 
-## Phase 7 boundary
+## Phase 8 boundary
 
-Phase 7 establishes ticket issuance, QR identifier generation, customer-facing QR image data, and one-time QR verification foundations. It does not add a production payment provider, authentication/admin UI, scanning-camera UI, notifications, inventory/capacity, gallery, sponsors, inquiries, reporting, email, WhatsApp, Maps, or other later business functionality.
+Phase 8 establishes secure administrator password authentication, server-side session state, login/logout/me APIs, reusable authentication/authorization middleware, configured-origin CORS/CSRF defenses, lightweight login abuse protection, safe security logging, and the minimum React admin-login/protected-route foundation.
+
+It does not add event CRUD, ticket CRUD, booking management, payment management, QR management, gallery, sponsors, inquiries, reports, analytics, scanning UI, notifications, or other admin business modules.
