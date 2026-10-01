@@ -84,9 +84,9 @@ npm --workspace frontend run dev
 
 Vite serves the application on its configured local development port, normally `http://localhost:5173`.
 
-## Phase 5 public booking flow
+## Phase 6 public payment flow
 
-The public React website now provides:
+The public React website provides:
 
 ```text
 /
@@ -94,18 +94,55 @@ The public React website now provides:
 /events/:id/book
 ```
 
-The public API currently provides:
+After a booking is created, the booking page exposes a payment-initiation state. The browser may be redirected to a configured provider checkout when one exists.
+
+The backend remains authoritative:
 
 ```text
-GET /api/events
-GET /api/events/:id
-GET /api/events/:eventId/ticket-categories
-POST /api/bookings
+Booking created
+      ↓
+Payment pending
+      ↓
+Provider checkout
+      ↓
+Trusted backend verification
+      ↓
+Payment successful
+      ↓
+Booking confirmed
 ```
 
-The booking flow collects ticket category, quantity, customer name, email, and phone. The backend loads the ticket price from MySQL and creates the booking in the existing `pending` pre-payment state.
+The browser cannot mark a payment successful. QR/ticket issuance begins only in a later phase.
 
-Creating a booking does **not** mean payment succeeded, a ticket was issued, or a QR code was generated. Payment, QR, authentication, notifications, and admin features remain later phases.
+## Payment provider status
+
+**No production payment provider is configured yet.**
+
+`backend/.env.example` therefore uses:
+
+```text
+PAYMENT_PROVIDER=unconfigured
+```
+
+The backend contains a provider abstraction and an isolated fail-closed `unconfigured` provider. It is not a mock payment gateway and does not create fake successful payments.
+
+When a real provider is selected, its implementation must provide checkout creation, payment verification, webhook authenticity verification, and normalized payment status without leaking credentials into React.
+
+Do not add production credentials until the provider has been selected and its integration requirements have been documented.
+
+## Payment API
+
+```text
+POST /api/bookings/:bookingId/payment
+POST /api/payments/verify
+POST /api/payments/webhook
+```
+
+Payment initiation requires an `Idempotency-Key` header. The backend obtains amount and currency from the booking in MySQL.
+
+Payment confirmation uses the existing `payments` table and transaction infrastructure. Amount/currency mismatches are rejected, duplicate provider references are rejected, and repeated successful verification is idempotent.
+
+Provider-specific webhook signatures and credentials remain intentionally unimplemented until provider selection.
 
 ## Phase 2/5 database setup
 
@@ -143,11 +180,11 @@ Seed development data only when appropriate:
 npm run db:seed
 ```
 
-Phase 5 adds `002_booking_idempotency.sql`, which adds a unique nullable idempotency key to bookings. Existing migrations must not be edited after being applied.
+Phase 5 added `002_booking_idempotency.sql`. Phase 6 does not add a payment table or modify the existing payment schema.
 
 ## Inventory limitation
 
-The source requirements define ticket-category availability status but do not define numeric capacity/quota. Phase 5 therefore does not invent ticket quantities or claim finite inventory enforcement. The booking transaction locks the selected category while checking its current availability status and creating the booking.
+The source requirements define ticket-category availability status but do not define numeric capacity/quota. Phase 5 therefore does not invent ticket quantities or claim finite inventory enforcement. Payment does not introduce an inventory system.
 
 ## Testing and validation
 
@@ -175,37 +212,38 @@ Frontend production build:
 npm --workspace frontend run build
 ```
 
-## Phase 5 status
+## Phase 6 status
 
 Implemented:
 
-- Transactional public booking creation API
-- Backend customer-data validation
-- Database-authoritative ticket price calculation
-- Decimal-safe integer-cents price calculation
-- Ticket-category availability-status enforcement
-- Server-generated unique booking IDs
-- Booking idempotency via `Idempotency-Key`
-- Existing MySQL transaction helper integration
-- Public booking route `/events/:id/book`
-- Customer booking form and client-side validation
-- Loading, validation, API-error, and booking-created states
-- Explicit payment-pending messaging
-- Booking API documentation and inventory limitation
-- Backend booking and transaction tests
+- Provider-agnostic payment-provider interface boundary
+- Fail-closed unconfigured provider
+- Payment initiation endpoint
+- Payment verification endpoint boundary
+- Generic webhook architecture boundary
+- Existing `payments` table integration
+- Authoritative booking amount/currency verification
+- Payment/booking state separation
+- Transactional successful-payment transition
+- Payment idempotency and provider-reference uniqueness handling
+- Duplicate verification handling
+- Payment failure handling without booking confirmation
+- React payment initiation state
+- Provider checkout redirect support when a real provider is configured
+- Backend payment tests with an isolated test provider
+- Payment API documentation
 
-Intentionally not implemented in Phase 5:
+Intentionally not implemented in Phase 6:
 
-- Numeric inventory/capacity enforcement
-- Payment gateway/checkout/webhooks/verification
-- Paid status transitions
+- Production payment gateway selection
+- Production payment credentials
+- Provider-specific checkout SDK
+- Provider-specific webhook signature verification
+- Fake production payment success
 - QR generation/scanning/verification
-- Customer booking retrieval endpoint
+- Ticket issuance
+- Email/WhatsApp/SMS/push notifications
 - Admin authentication/authorization/dashboard
-- Gallery management
-- Sponsor management
-- Inquiry management
-- Reports/analytics
-- Email/WhatsApp/Google Maps
+- Inventory/capacity invention
 
-These belong to later phases.
+These remain later-phase work.
