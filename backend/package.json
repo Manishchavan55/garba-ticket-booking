@@ -9,8 +9,9 @@
     "test": "vitest run",
     "lint": "eslint .",
     "db:check": "node src/database/checkConnection.js",
-    "db:migrate": "node src/database/migrate.js",
-    "db:validate": "node src/database/validateSchema.js"
+    "db:migrate": "node src/database/migrator.js",
+    "db:validate": "node src/database/validateSchema.js",
+    "db:seed": "node src/database/seeder.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
