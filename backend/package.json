@@ -8,7 +8,9 @@
     "start": "node src/server.js",
     "test": "vitest run",
     "lint": "eslint .",
-    "db:check": "node src/database/checkConnection.js"
+    "db:check": "node src/database/checkConnection.js",
+    "db:migrate": "node src/database/migrate.js",
+    "db:validate": "node src/database/validateSchema.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
