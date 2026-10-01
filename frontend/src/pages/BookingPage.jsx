@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { getEvent, getTicketCategories } from '../api/events.js';
 import { createBooking } from '../api/bookings.js';
+import PaymentAction from '../components/PaymentAction.jsx';
 import StatusMessage from '../components/StatusMessage.jsx';
 import PublicLayout from '../layouts/PublicLayout.jsx';
 
@@ -139,14 +140,15 @@ export default function BookingPage() {
           <section className="booking-success" aria-labelledby="booking-success-title">
             <p className="eyebrow">Booking created</p>
             <h1 id="booking-success-title">Your booking is pending payment</h1>
-            <p>Your booking has been recorded, but payment has not been completed and no ticket has been issued yet.</p>
+            <p>Your booking has been recorded. Payment remains pending until a trusted backend verification from the selected provider succeeds.</p>
             <dl className="booking-summary">
               <div><dt>Booking ID</dt><dd>{booking.bookingId}</dd></div>
               <div><dt>Status</dt><dd>{booking.status}</dd></div>
               <div><dt>Amount</dt><dd>{formatPrice(booking.amount)}</dd></div>
               <div><dt>Currency</dt><dd>{booking.currency}</dd></div>
             </dl>
-            <Link className="button" to={`/events/${id}`}>Return to event</Link>
+            <PaymentAction bookingId={booking.bookingId} idempotencyKey={idempotencyKey} />
+            <Link className="text-link" to={`/events/${id}`}>Return to event</Link>
           </section>
         </main>
       </PublicLayout>
@@ -207,7 +209,7 @@ export default function BookingPage() {
             <Link className="text-link" to={`/events/${id}`}>Back to event</Link>
           </div>
 
-          <p className="booking-payment-note">Payment is not processed in this phase. Creating this booking does not mean payment was successful or that a ticket has been issued.</p>
+          <p className="booking-payment-note">Payment success is never determined by this browser. The backend must verify the provider result before the booking becomes confirmed.</p>
         </form>
       </main>
     </PublicLayout>
