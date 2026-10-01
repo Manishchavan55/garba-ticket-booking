@@ -1,0 +1,35 @@
+name: Phase 1 CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Backend tests
+        run: npm --workspace backend test
+
+      - name: Backend lint
+        run: npm --workspace backend run lint
+
+      - name: Frontend lint
+        run: npm --workspace frontend run lint
+
+      - name: Frontend production build
+        run: npm --workspace frontend run build

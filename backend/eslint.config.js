@@ -10,6 +10,7 @@ export default [
       ecmaVersion: 'latest',
       sourceType: 'module',
       globals: {
+        console: 'readonly',
         process: 'readonly',
       },
     },
