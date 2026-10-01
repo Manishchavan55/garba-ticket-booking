@@ -1,10 +1,8 @@
-# Phase 2 Database Architecture
+# Database Architecture
 
-Phase 2 introduces the MySQL 8.x schema and a lightweight SQL migration process. The backend remains the owner of database credentials and database access.
+The project uses MySQL 8.x. The backend owns database credentials and database access.
 
-## Schema
-
-Core tables:
+## Core tables
 
 - `events`
 - `ticket_categories`
@@ -18,7 +16,7 @@ Core tables:
 
 Migration bookkeeping is stored in `schema_migrations`.
 
-## Relationships
+## Booking relationships
 
 ```text
  events
@@ -28,26 +26,35 @@ Migration bookkeeping is stored in `schema_migrations`.
           └── bookings
                  ├── payments
                  └── qr_tickets
-
- gallery
- sponsors
- inquiries
- admin_users
 ```
 
-The independent tables remain logically separate because the requirements do not define additional mandatory relationships.
+The remaining tables remain logically separate because later feature phases will define their operational relationships.
+
+## Phase 5 booking change
+
+`002_booking_idempotency.sql` adds a nullable, unique `bookings.idempotency_key` column.
+
+This is required to make repeated public booking requests safe when a customer double-clicks, retries after a network timeout, or submits the same request again. A null value is allowed for legacy/manual records; public booking creation supplies an idempotency key.
+
+The existing `bookings.booking_status = 'pending'` remains the pre-payment state and is documented by the API as **PENDING_PAYMENT**. The migration does not change the existing status constraint because `pending` already represents the required pre-payment lifecycle state.
 
 ## Integrity decisions
 
 - Primary keys use unsigned `BIGINT` values to leave room for growth.
 - Monetary values use `DECIMAL(12,2)` rather than floating point.
 - Booking identifiers and QR identifiers are unique.
+- Booking idempotency keys are unique when supplied.
 - Payment idempotency keys are unique when supplied.
 - Payment gateway references are unique per provider when supplied.
 - Foreign keys use `ON UPDATE RESTRICT` and `ON DELETE RESTRICT` so booking/payment/ticket history cannot be removed accidentally through parent deletion.
 - Booking, payment, ticket, gallery, sponsor, inquiry, and admin statuses use constrained string values rather than application-only conventions.
 - A booking may have multiple QR tickets; the requirements do not define a one-QR-per-booking rule.
-- QR `verification_status` stores `unused`, `used`, or `invalid`. The actual one-time verification transaction belongs to a later service layer; the schema provides the state and timestamps needed for an atomic conditional update.
+
+## Inventory limitation
+
+`ticket_categories` currently contains `availability_status`, but no numeric capacity, quota, remaining-count, or reservation-expiry field is defined by the source requirements.
+
+Phase 5 therefore does not invent inventory quantities and does not claim finite inventory enforcement. Booking creation locks the selected category row while checking its current availability status and writing the booking. A true remaining-ticket/overselling model requires an organizer-defined numeric inventory rule in a later phase.
 
 ## Migration commands
 
@@ -69,7 +76,7 @@ Check basic MySQL connectivity:
 npm run db:check
 ```
 
-The commands require the backend database variables in `backend/.env`:
+The commands require:
 
 ```text
 DB_HOST
@@ -79,14 +86,19 @@ DB_USER
 DB_PASSWORD
 ```
 
-Create the database itself using the MySQL server's normal database-creation mechanism before running migrations. The migration runner creates the application tables; it does not silently create a database with credentials or server-level privileges.
+The database itself must exist before running migrations. The migration runner creates application tables and migration bookkeeping; it does not create a server/database account.
 
 ## Migration approach
 
-`backend/src/database/migrate.js` discovers SQL files in `backend/src/database/migrations`, sorts them lexically, and records applied filenames in `schema_migrations`. New migrations should use an incremented filename such as `002_description.sql`.
+`backend/src/database/migrator.js` discovers SQL files in `database/migrations`, sorts them lexically, and records applied filenames in `schema_migrations`.
 
-The current migration is `001_initial_schema.sql` and creates the complete Phase 2 application schema.
+Existing migrations must not be edited after being treated as applied. New changes use incremented filenames such as:
+
+```text
+002_booking_idempotency.sql
+003_future_change.sql
+```
 
 ## Seed data
 
-No seed data is included in Phase 2. The specification permits development seed data but does not require particular fictional event/ticket values, so no business assumptions were introduced.
+Phase 5 continues to use the existing development seed. No fake customer, payment, or production organizer data is added.
