@@ -20,6 +20,7 @@ const requireString = (value, field, maxLength) => {
   return normalized;
 };
 
+const isPositiveInteger = (value) => Number.isSafeInteger(Number(value)) && Number(value) > 0;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const validateCreateBooking = (req, _res, next) => {
@@ -28,9 +29,13 @@ export const validateCreateBooking = (req, _res, next) => {
       throw createValidationError('Request body must be a JSON object');
     }
 
-    const { ticketCategoryId, quantity, customerName, customerEmail, customerPhone } = req.body;
+    const { eventId, ticketCategoryId, quantity, customerName, customerEmail, customerPhone } = req.body;
 
-    if (!Number.isSafeInteger(Number(ticketCategoryId)) || Number(ticketCategoryId) <= 0) {
+    if (!isPositiveInteger(eventId)) {
+      throw createValidationError('Event ID must be a positive integer');
+    }
+
+    if (!isPositiveInteger(ticketCategoryId)) {
       throw createValidationError('Ticket category ID must be a positive integer');
     }
 
@@ -39,6 +44,7 @@ export const validateCreateBooking = (req, _res, next) => {
     }
 
     req.body = {
+      eventId: Number(eventId),
       ticketCategoryId: Number(ticketCategoryId),
       quantity,
       customerName: requireString(customerName, 'Customer name', 160),
