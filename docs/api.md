@@ -161,12 +161,15 @@ The configured provider implementation must authenticate/verify the provider res
 - verify the provider transaction reference
 - update the payment state
 - transition the booking from `pending` to `confirmed`
+- issue the booking's QR tickets exactly once
 
-No production provider is configured yet, so this endpoint currently returns `503 PAYMENT_PROVIDER_NOT_CONFIGURED`.
+A successful verification response includes the issued ticket records and backend-generated QR image data. No production provider is configured yet, so this endpoint currently returns `503 PAYMENT_PROVIDER_NOT_CONFIGURED`.
 
 ### `POST /payments/webhook`
 
 Generic provider webhook boundary. Provider-specific signature/authentication is intentionally not invented before provider selection. The configured provider implementation owns webhook authenticity verification and event normalization.
+
+A verified successful webhook uses the same payment-confirmation transaction boundary and ticket issuance service as direct verification. Duplicate callbacks reuse existing ticket records.
 
 No production provider is configured yet, so this endpoint currently returns `503 PAYMENT_PROVIDER_NOT_CONFIGURED`.
 
@@ -181,11 +184,101 @@ Payment:
 
 Booking:
   pending --verified successful payment--> confirmed
+                                      |
+                                      v
+                                ticket issuance
 ```
 
-A failed payment never confirms the booking. A successful payment is recorded only after trusted provider verification. Repeated successful verification is handled idempotently.
+A failed payment never confirms the booking and never issues tickets. A successful payment is recorded only after trusted provider verification. Repeated successful verification is handled idempotently and reuses the same QR-ticket records.
 
 Payment amount and currency are always compared against the authoritative booking/payment data loaded from MySQL. Browser totals, client status values, and redirect URLs are not authoritative.
+
+## Ticket issuance and QR tickets
+
+Ticket issuance is a domain operation, not a client-created resource. The payment-success boundary invokes the ticket service inside the same transaction that confirms the booking.
+
+The issuance transaction:
+
+```text
+BEGIN
+  -> lock/read confirmed booking
+  -> verify latest payment is successful
+  -> lock existing QR tickets
+  -> compare persisted booking quantity
+  -> create only missing tickets
+  -> COMMIT
+```
+
+On failure the transaction rolls back and releases the connection.
+
+### Ticket cardinality
+
+The persisted `bookings.quantity` determines the number of QR tickets:
+
+```text
+quantity = 1 -> 1 QR ticket
+quantity = 3 -> 3 QR tickets
+```
+
+The frontend cannot override this value during issuance.
+
+The existing `qr_tickets` table already supports the required one-booking-to-many-tickets relationship and has a unique `qr_identifier` constraint. No Phase 7 migration is required.
+
+### QR identifier strategy
+
+Each QR identifier is generated server-side using cryptographically secure random bytes and encoded as a URL-safe opaque identifier. It contains no customer data, passwords, payment secrets, database identifiers, or sequential ticket numbers.
+
+The QR image is rendered from only that opaque identifier. Customer/payment data is not encoded into the QR payload.
+
+The backend uses the maintained `qrcode` package for server-side PNG data-URL rendering. The QR image is generated for presentation after the transactional ticket records have been committed; the identifier itself remains the persisted source of truth.
+
+### Ticket issuance idempotency
+
+Ticket issuance does not depend on an HTTP idempotency header. It is safe when invoked internally by repeated payment verification/webhook processing.
+
+The booking row is locked before existing tickets are checked. If the persisted quantity has already been fully issued, the existing ticket records are returned and no inserts occur. If a prior transaction somehow left a partial batch, only the missing quantity is created. The database's unique QR identifier constraint remains the final uniqueness guarantee.
+
+## QR verification
+
+### `POST /tickets/verify`
+
+Verifies and consumes one QR ticket.
+
+Request:
+
+```json
+{
+  "qrIdentifier": "<opaque-qr-identifier>"
+}
+```
+
+The identifier is validated before database access. The verification transaction then:
+
+1. locks the matching ticket row
+2. verifies that the ticket exists
+3. rejects `used` or `invalid` tickets
+4. verifies the associated booking is `confirmed`
+5. verifies the latest payment is `successful`
+6. atomically changes the ticket from `unused` to `used`
+7. records `verified_at` and `used_at`
+8. commits the entry decision
+
+A successful response is:
+
+```json
+{
+  "success": true,
+  "data": {
+    "verified": true,
+    "status": "used",
+    "bookingId": "KDN-..."
+  }
+}
+```
+
+A second verification of the same QR identifier returns `409 QR_TICKET_ALREADY_USED` and does not accept the ticket again. A nonexistent identifier returns `404 QR_TICKET_NOT_FOUND`.
+
+This phase provides the verification service/API foundation but does not add a scanning camera UI or admin authorization layer. Admin authentication and venue-scanning UI belong to later phases.
 
 ## Provider abstraction
 
@@ -214,13 +307,15 @@ Provider-specific signatures, credentials, API fields, checkout behavior, and we
 
 Payment initiation uses the existing `payments.idempotency_key` unique constraint. Provider transaction references use the existing unique `(provider, gateway_transaction_reference)` constraint.
 
-Payment confirmation uses the existing transaction helper and locks the relevant payment/booking rows before state changes. The payment update and booking confirmation commit together or roll back together.
+Payment confirmation uses the existing transaction helper and locks the relevant payment/booking rows before state changes. The payment update, booking confirmation, and successful-payment ticket issuance commit together or roll back together.
 
-Duplicate provider events and repeated verification do not create another payment or reapply the successful booking transition.
+Duplicate provider events and repeated verification do not create another payment or another QR-ticket batch.
 
 ## Payment security
 
 Provider credentials, webhook secrets, signatures, authorization headers, and database credentials remain backend-only. They are not exposed to React or public files.
+
+QR identifiers are bearer-style credentials. They are not logged and are not included in generic error metadata. Verification responses return only the minimum booking reference needed for the entry decision.
 
 The application does not log full payment payloads or secrets. Provider-specific signature validation remains explicitly pending provider selection.
 
@@ -277,4 +372,4 @@ npm run db:validate
 npm run db:seed
 ```
 
-Phase 6 does not add a new payment table or migration. It uses the existing `payments` table and its Phase 2 uniqueness constraints. No QR, ticket issuance, admin, gallery, sponsor, inquiry, reporting, email, WhatsApp, or Maps business APIs exist yet.
+Phase 7 does not add a schema migration because the existing `qr_tickets` table already contains the required one-booking-to-many-ticket fields and the unique QR identifier constraint. No authentication/admin, notifications, gallery, sponsor, inquiry, reporting, email, WhatsApp, Maps, or inventory business functionality has been added.
