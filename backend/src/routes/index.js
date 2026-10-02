@@ -3,6 +3,7 @@ import adminAuthRoutes from './adminAuth.routes.js';
 import adminBookingRoutes from './adminBooking.routes.js';
 import adminEventRoutes from './adminEvent.routes.js';
 import adminPaymentRoutes from './adminPayment.routes.js';
+import adminQrRoutes from './adminQr.routes.js';
 import bookingRoutes from './booking.routes.js';
 import eventRoutes from './event.routes.js';
 import healthRoutes from './health.routes.js';
@@ -20,5 +21,6 @@ router.use('/admin/auth', adminAuthRoutes);
 router.use('/admin', adminEventRoutes);
 router.use('/admin', adminBookingRoutes);
 router.use('/admin', adminPaymentRoutes);
+router.use('/admin', adminQrRoutes);
 
 export default router;
