@@ -5,6 +5,7 @@ import './styles/adminBookings.css';
 import './styles/adminPayments.css';
 import './styles/adminQr.css';
 import './styles/gallery.css';
+import './styles/sponsors.css';
 import { AdminAuthProvider } from './auth/AdminAuthContext.jsx';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute.jsx';
 import AdminBookingsPage from './pages/AdminBookingsPage.jsx';
@@ -14,10 +15,12 @@ import AdminHomePage from './pages/AdminHomePage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import AdminPaymentsPage from './pages/AdminPaymentsPage.jsx';
 import AdminQrPage from './pages/AdminQrPage.jsx';
+import AdminSponsorsPage from './pages/AdminSponsorsPage.jsx';
 import BookingPage from './pages/BookingPage.jsx';
 import EventDetailPage from './pages/EventDetailPage.jsx';
 import GalleryPage from './pages/GalleryPage.jsx';
 import HomePage from './pages/HomePage.jsx';
+import SponsorsPage from './pages/SponsorsPage.jsx';
 
 export default function App() {
   return (
@@ -28,6 +31,7 @@ export default function App() {
           <Route path="/events/:id" element={<EventDetailPage />} />
           <Route path="/events/:id/book" element={<BookingPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
+          <Route path="/sponsors" element={<SponsorsPage />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route element={<ProtectedAdminRoute />}>
             <Route path="/admin" element={<AdminHomePage />} />
@@ -36,6 +40,7 @@ export default function App() {
             <Route path="/admin/payments" element={<AdminPaymentsPage />} />
             <Route path="/admin/qr" element={<AdminQrPage />} />
             <Route path="/admin/gallery" element={<AdminGalleryPage />} />
+            <Route path="/admin/sponsors" element={<AdminSponsorsPage />} />
           </Route>
           <Route path="/status" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
