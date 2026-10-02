@@ -1,0 +1,46 @@
+.admin-qr-page .admin-auth-card {
+  max-width: 980px;
+}
+
+.admin-qr-verify {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+
+.admin-qr-verify input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.admin-qr-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.admin-qr-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 0.75rem;
+}
+
+.admin-qr-row p {
+  margin: 0.25rem 0 0;
+}
+
+.admin-qr-detail {
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 700px) {
+  .admin-qr-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
