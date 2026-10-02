@@ -23,6 +23,7 @@ import ContactPage from './pages/ContactPage.jsx';
 import EventDetailPage from './pages/EventDetailPage.jsx';
 import GalleryPage from './pages/GalleryPage.jsx';
 import HomePage from './pages/HomePage.jsx';
+import PaymentResultPage from './pages/PaymentResultPage.jsx';
 import SponsorsPage from './pages/SponsorsPage.jsx';
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/events/:id" element={<EventDetailPage />} />
           <Route path="/events/:id/book" element={<BookingPage />} />
+          <Route path="/payment/result" element={<PaymentResultPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/sponsors" element={<SponsorsPage />} />
           <Route path="/contact" element={<ContactPage />} />
