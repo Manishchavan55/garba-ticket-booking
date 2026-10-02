@@ -20,6 +20,16 @@ const loadConfig = (env) => spawnSync(
   },
 );
 
+const runAdminBootstrap = (env) => spawnSync(
+  process.execPath,
+  ['src/database/createAdmin.js'],
+  {
+    cwd: process.cwd(),
+    env,
+    encoding: 'utf8',
+  },
+);
+
 describe('production configuration guardrails', () => {
   it('refuses to start production with sandbox PhonePe configuration', () => {
     const result = loadConfig(envForProduction({ PHONEPE_ENVIRONMENT: 'SANDBOX' }));
@@ -40,5 +50,16 @@ describe('production configuration guardrails', () => {
 
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
+  });
+
+  it('refuses production admin bootstrap without explicit confirmation', () => {
+    const result = runAdminBootstrap(envForProduction({
+      ADMIN_BOOTSTRAP_USERNAME: 'uat-admin',
+      ADMIN_BOOTSTRAP_EMAIL: 'uat-admin@example.com',
+      ADMIN_BOOTSTRAP_PASSWORD: 'a-strong-test-password',
+    }));
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('ADMIN_BOOTSTRAP_CONFIRM=CREATE_ADMIN');
   });
 });
