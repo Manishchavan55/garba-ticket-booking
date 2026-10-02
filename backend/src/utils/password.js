@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
