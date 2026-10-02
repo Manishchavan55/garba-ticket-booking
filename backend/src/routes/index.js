@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import adminAuthRoutes from './adminAuth.routes.js';
+import adminBookingRoutes from './adminBooking.routes.js';
 import adminEventRoutes from './adminEvent.routes.js';
 import bookingRoutes from './booking.routes.js';
 import eventRoutes from './event.routes.js';
@@ -16,5 +17,6 @@ router.use('/tickets', ticketRoutes);
 router.use('/', paymentRoutes);
 router.use('/admin/auth', adminAuthRoutes);
 router.use('/admin', adminEventRoutes);
+router.use('/admin', adminBookingRoutes);
 
 export default router;

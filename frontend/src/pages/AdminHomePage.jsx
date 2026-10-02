@@ -14,8 +14,12 @@ export default function AdminHomePage() {
     <main className="page-shell admin-home-page">
       <section className="admin-auth-card" aria-labelledby="admin-foundation-heading">
         <p className="eyebrow">Protected administration area</p>
-        <h1 id="admin-foundation-heading">Admin authentication foundation</h1>
-        <p className="muted-copy">Authentication is active. Business administration modules will be introduced in later phases.</p>
+        <h1 id="admin-foundation-heading">Admin management</h1>
+        <p className="muted-copy">Manage event configuration and review customer bookings using the existing authenticated admin session.</p>
+        <div className="booking-actions">
+          <button type="button" onClick={() => navigate('/admin/events')}>Events &amp; ticket categories</button>
+          <button type="button" onClick={() => navigate('/admin/bookings')}>Bookings</button>
+        </div>
         <dl className="admin-identity">
           <div>
             <dt>Username</dt>

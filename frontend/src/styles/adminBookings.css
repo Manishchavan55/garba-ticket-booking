@@ -1,0 +1,23 @@
+.admin-bookings-page .admin-management-grid {
+  align-items: start;
+}
+
+.admin-booking-detail {
+  position: sticky;
+  top: 1rem;
+}
+
+.admin-booking-detail .admin-identity {
+  margin-top: 1rem;
+}
+
+.event-card--selected {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .admin-booking-detail {
+    position: static;
+  }
+}
