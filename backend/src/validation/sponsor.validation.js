@@ -1,3 +1,5 @@
+import { URL } from 'node:url';
+
 const SPONSOR_ID_PATTERN = /^\d+$/;
 
 const validationError = (message, field) => {
