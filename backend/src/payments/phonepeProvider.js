@@ -136,7 +136,7 @@ export const createPhonePePaymentProvider = (options, fetchImpl = globalThis.fet
 
   const normalizeStatus = (payload, bookingId = null) => {
     const state = String(payload?.state ?? '').toUpperCase();
-    const merchantOrderId = String(payload?.merchantOrderId ?? '').trim();
+    const merchantOrderId = String(payload?.merchantOrderId ?? payload?.orderId ?? '').trim();
     const amount = Number(payload?.amount);
     const metaInfo = payload?.metaInfo && typeof payload.metaInfo === 'object' ? payload.metaInfo : {};
 
@@ -208,7 +208,7 @@ export const createPhonePePaymentProvider = (options, fetchImpl = globalThis.fet
     },
 
     async verifyPayment({ payment, booking, payload }) {
-      const merchantOrderId = payment.gatewayTransactionReference || payload?.merchantOrderId;
+      const merchantOrderId = payment.gatewayTransactionReference || payload?.merchantOrderId || payload?.orderId;
       if (!merchantOrderId) {
         throw new PaymentProviderError('PhonePe merchant order reference is missing', 'PAYMENT_REFERENCE_MISSING', 409);
       }
@@ -228,16 +228,21 @@ export const createPhonePePaymentProvider = (options, fetchImpl = globalThis.fet
       }
 
       const event = String(payload?.event ?? '').trim();
-      if (!['checkout.order.completed', 'checkout.order.failed'].includes(event)) {
+      if (![
+        'checkout.order.completed',
+        'checkout.order.failed',
+        'checkout.transaction.attempt.failed',
+        'pg.order.completed',
+        'pg.order.failed',
+      ].includes(event)) {
         throw new PaymentProviderError('Unsupported PhonePe webhook event', 'PAYMENT_WEBHOOK_EVENT_UNSUPPORTED', 400);
       }
 
       const normalized = normalizeStatus(payload.payload, payload.payload?.metaInfo?.udf1);
-      if (event === 'checkout.order.completed' && normalized.status !== 'successful') {
-        throw new PaymentProviderError('PhonePe completed webhook has an invalid state', 'PAYMENT_WEBHOOK_STATE_INVALID', 409);
-      }
-      if (event === 'checkout.order.failed' && normalized.status !== 'failed') {
-        throw new PaymentProviderError('PhonePe failed webhook has an invalid state', 'PAYMENT_WEBHOOK_STATE_INVALID', 409);
+      const isFailureEvent = event.endsWith('.failed') || event === 'checkout.transaction.attempt.failed';
+      const expectedStatus = isFailureEvent ? 'failed' : 'successful';
+      if (normalized.status !== expectedStatus) {
+        throw new PaymentProviderError('PhonePe webhook has an invalid payment state', 'PAYMENT_WEBHOOK_STATE_INVALID', 409);
       }
 
       return normalized;
