@@ -4,8 +4,13 @@ import { createDevelopmentAdmin } from '../services/adminAuth.service.js';
 const username = process.env.ADMIN_BOOTSTRAP_USERNAME?.trim();
 const email = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim();
 const password = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+const nodeEnv = process.env.NODE_ENV ?? 'development';
+const productionConfirmation = process.env.ADMIN_BOOTSTRAP_CONFIRM;
 
-if (!username || !email || !password) {
+if (nodeEnv === 'production' && productionConfirmation !== 'CREATE_ADMIN') {
+  console.error('Production admin bootstrap requires ADMIN_BOOTSTRAP_CONFIRM=CREATE_ADMIN.');
+  process.exitCode = 1;
+} else if (!username || !email || !password) {
   console.error('ADMIN_BOOTSTRAP_USERNAME, ADMIN_BOOTSTRAP_EMAIL and ADMIN_BOOTSTRAP_PASSWORD are required.');
   process.exitCode = 1;
 } else if (password.length < 12) {
