@@ -47,7 +47,8 @@ describe('PhonePe payment provider', () => {
       expiresAt: 1730000000000,
     });
 
-    const [, paymentRequest] = fetchImpl.mock.calls;
+    const [, paymentCall] = fetchImpl.mock.calls;
+    const paymentRequest = paymentCall[1];
     expect(paymentRequest.headers.Authorization).toBe('O-Bearer access-token');
     expect(JSON.parse(paymentRequest.body)).toMatchObject({
       merchantOrderId: 'KDN-PAY-44',
