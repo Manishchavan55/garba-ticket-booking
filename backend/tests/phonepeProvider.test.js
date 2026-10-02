@@ -18,6 +18,11 @@ const makeProvider = (fetchImpl) => createPhonePePaymentProvider({
   webhookPassword: 'webhook-password',
 }, fetchImpl);
 
+const webhookAuthorization = crypto
+  .createHash('sha256')
+  .update('webhook-user:webhook-password')
+  .digest('hex');
+
 describe('PhonePe payment provider', () => {
   it('creates a Standard Checkout session with the authoritative amount in paisa', async () => {
     const fetchImpl = vi.fn()
@@ -145,7 +150,7 @@ describe('PhonePe payment provider', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('authenticates SHA webhooks before accepting payment state changes', async () => {
+  it('authenticates current checkout webhook events before accepting payment state changes', async () => {
     const provider = makeProvider(vi.fn());
     const payload = {
       event: 'checkout.order.completed',
@@ -156,14 +161,10 @@ describe('PhonePe payment provider', () => {
         metaInfo: { udf1: 'KDN-12345678-1234-4234-8234-123456789012' },
       },
     };
-    const authorization = crypto
-      .createHash('sha256')
-      .update('webhook-user:webhook-password')
-      .digest('hex');
 
     const result = await provider.verifyWebhook({
       payload,
-      headers: { authorization },
+      headers: { authorization: webhookAuthorization },
     });
 
     expect(result).toMatchObject({
@@ -172,6 +173,50 @@ describe('PhonePe payment provider', () => {
       amount: '499.00',
       status: 'successful',
       bookingId: 'KDN-12345678-1234-4234-8234-123456789012',
+    });
+  });
+
+  it('accepts the official SDK callback orderId field and pg.order.completed event', async () => {
+    const provider = makeProvider(vi.fn());
+    const payload = {
+      event: 'pg.order.completed',
+      payload: {
+        orderId: 'KDN-PAY-44',
+        state: 'COMPLETED',
+        amount: 49900,
+        metaInfo: { udf1: 'KDN-12345678-1234-4234-8234-123456789012' },
+      },
+    };
+
+    const result = await provider.verifyWebhook({
+      payload,
+      headers: { authorization: webhookAuthorization },
+    });
+
+    expect(result).toMatchObject({
+      providerTransactionReference: 'KDN-PAY-44',
+      status: 'successful',
+    });
+  });
+
+  it('accepts supported failed callback events and normalizes them to failed', async () => {
+    const provider = makeProvider(vi.fn());
+    const payload = {
+      event: 'pg.order.failed',
+      payload: {
+        orderId: 'KDN-PAY-44',
+        state: 'FAILED',
+        amount: 49900,
+        metaInfo: { udf1: 'KDN-12345678-1234-4234-8234-123456789012' },
+      },
+    };
+
+    await expect(provider.verifyWebhook({
+      payload,
+      headers: { authorization: webhookAuthorization },
+    })).resolves.toMatchObject({
+      providerTransactionReference: 'KDN-PAY-44',
+      status: 'failed',
     });
   });
 
@@ -194,9 +239,7 @@ describe('PhonePe payment provider', () => {
 
     await expect(provider.verifyWebhook({
       payload: { ...payload, event: 'pg.refund.completed' },
-      headers: {
-        authorization: crypto.createHash('sha256').update('webhook-user:webhook-password').digest('hex'),
-      },
+      headers: { authorization: webhookAuthorization },
     })).rejects.toMatchObject({ code: 'PAYMENT_WEBHOOK_EVENT_UNSUPPORTED', statusCode: 400 });
   });
 });
