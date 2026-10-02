@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './styles/global.css';
+import './styles/adminEvents.css';
 import { AdminAuthProvider } from './auth/AdminAuthContext.jsx';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute.jsx';
 import AdminEventsPage from './pages/AdminEventsPage.jsx';
