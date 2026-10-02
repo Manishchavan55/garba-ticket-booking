@@ -1,0 +1,29 @@
+.admin-management-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+.admin-category-section {
+  margin-top: 1rem;
+}
+
+.admin-category-section > .admin-management-grid {
+  width: min(100%, 1120px);
+  margin-inline: auto;
+}
+
+.admin-events-page .status-message {
+  margin-bottom: 1rem;
+}
+
+.admin-events-page .button {
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .admin-management-grid {
+    grid-template-columns: 1fr;
+  }
+}
