@@ -12,6 +12,9 @@ export const verify = async (req, res) => {
 };
 
 export const webhook = async (req, res) => {
-  const result = await processWebhook(req.body);
+  const result = await processWebhook(req.body, undefined, {
+    headers: req.headers,
+    rawBody: req.rawBody,
+  });
   sendSuccess(res, result);
 };

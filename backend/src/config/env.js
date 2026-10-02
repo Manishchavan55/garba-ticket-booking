@@ -29,6 +29,15 @@ export const config = Object.freeze({
   }),
   payment: Object.freeze({
     provider: process.env.PAYMENT_PROVIDER ?? 'unconfigured',
+    phonepe: Object.freeze({
+      environment: process.env.PHONEPE_ENVIRONMENT ?? 'SANDBOX',
+      clientId: process.env.PHONEPE_CLIENT_ID ?? '',
+      clientSecret: process.env.PHONEPE_CLIENT_SECRET ?? '',
+      clientVersion: parsePositiveInteger(process.env.PHONEPE_CLIENT_VERSION, 1),
+      redirectUrl: process.env.PHONEPE_REDIRECT_URL ?? '',
+      webhookUsername: process.env.PHONEPE_WEBHOOK_USERNAME ?? '',
+      webhookPassword: process.env.PHONEPE_WEBHOOK_PASSWORD ?? '',
+    }),
   }),
   adminAuth: Object.freeze({
     sessionTtlHours: parsePositiveInteger(process.env.ADMIN_SESSION_TTL_HOURS, 8),

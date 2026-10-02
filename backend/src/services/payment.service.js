@@ -316,8 +316,16 @@ export const verifyPayment = async (bookingId, providerPayload, provider = getPa
   return presentPaymentResult(result);
 };
 
-export const processWebhook = async (providerPayload, provider = getPaymentProvider()) => {
-  const normalized = await provider.verifyWebhook(providerPayload);
+export const processWebhook = async (
+  providerPayload,
+  provider = getPaymentProvider(),
+  requestContext = {},
+) => {
+  const normalized = await provider.verifyWebhook({
+    payload: providerPayload,
+    headers: requestContext.headers,
+    rawBody: requestContext.rawBody,
+  });
 
   if (!normalized.bookingId) {
     const error = new Error('Verified webhook did not identify a booking');

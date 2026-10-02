@@ -1,4 +1,7 @@
 import { config } from '../config/env.js';
+import { createPhonePePaymentProvider } from './phonepeProvider.js';
+
+let phonePeProvider;
 
 export const getPaymentProvider = () => {
   if (config.payment.provider === 'unconfigured') {
@@ -7,6 +10,11 @@ export const getPaymentProvider = () => {
     error.code = 'PAYMENT_PROVIDER_NOT_CONFIGURED';
     error.type = 'internal';
     throw error;
+  }
+
+  if (config.payment.provider === 'phonepe') {
+    phonePeProvider ??= createPhonePePaymentProvider(config.payment.phonepe);
+    return phonePeProvider;
   }
 
   throw Object.assign(
