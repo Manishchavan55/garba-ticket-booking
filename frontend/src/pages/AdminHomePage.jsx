@@ -15,10 +15,11 @@ export default function AdminHomePage() {
       <section className="admin-auth-card" aria-labelledby="admin-foundation-heading">
         <p className="eyebrow">Protected administration area</p>
         <h1 id="admin-foundation-heading">Admin management</h1>
-        <p className="muted-copy">Manage event configuration and review customer bookings using the existing authenticated admin session.</p>
+        <p className="muted-copy">Manage event configuration, review customer bookings, and review recorded payment transactions using the existing authenticated admin session.</p>
         <div className="booking-actions">
           <button type="button" onClick={() => navigate('/admin/events')}>Events &amp; ticket categories</button>
           <button type="button" onClick={() => navigate('/admin/bookings')}>Bookings</button>
+          <button type="button" onClick={() => navigate('/admin/payments')}>Payments &amp; transactions</button>
         </div>
         <dl className="admin-identity">
           <div>

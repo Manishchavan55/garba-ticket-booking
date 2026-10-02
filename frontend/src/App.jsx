@@ -2,12 +2,14 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './styles/global.css';
 import './styles/adminEvents.css';
 import './styles/adminBookings.css';
+import './styles/adminPayments.css';
 import { AdminAuthProvider } from './auth/AdminAuthContext.jsx';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute.jsx';
 import AdminBookingsPage from './pages/AdminBookingsPage.jsx';
 import AdminEventsPage from './pages/AdminEventsPage.jsx';
 import AdminHomePage from './pages/AdminHomePage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
+import AdminPaymentsPage from './pages/AdminPaymentsPage.jsx';
 import BookingPage from './pages/BookingPage.jsx';
 import EventDetailPage from './pages/EventDetailPage.jsx';
 import HomePage from './pages/HomePage.jsx';
@@ -25,6 +27,7 @@ export default function App() {
             <Route path="/admin" element={<AdminHomePage />} />
             <Route path="/admin/events" element={<AdminEventsPage />} />
             <Route path="/admin/bookings" element={<AdminBookingsPage />} />
+            <Route path="/admin/payments" element={<AdminPaymentsPage />} />
           </Route>
           <Route path="/status" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
