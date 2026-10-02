@@ -32,6 +32,13 @@ describe('API foundation', () => {
     });
   });
 
+  it('allows bodyless POST requests through JSON content validation', async () => {
+    const response = await request(app).post('/api/health');
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe('NOT_FOUND');
+  });
+
   it('returns a structured error for malformed JSON', async () => {
     const response = await request(app)
       .post('/api/health')
