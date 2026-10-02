@@ -10,6 +10,8 @@ export default function PublicLayout({ children }) {
         <nav aria-label="Primary navigation">
           <Link to="/">Events</Link>
           <Link to="/gallery">Gallery</Link>
+          <Link to="/sponsors">Sponsors</Link>
+          <Link to="/contact">Contact</Link>
         </nav>
       </header>
       {children}

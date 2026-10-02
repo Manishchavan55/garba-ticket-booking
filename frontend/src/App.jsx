@@ -6,17 +6,20 @@ import './styles/adminPayments.css';
 import './styles/adminQr.css';
 import './styles/gallery.css';
 import './styles/sponsors.css';
+import './styles/contact.css';
 import { AdminAuthProvider } from './auth/AdminAuthContext.jsx';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute.jsx';
 import AdminBookingsPage from './pages/AdminBookingsPage.jsx';
 import AdminEventsPage from './pages/AdminEventsPage.jsx';
 import AdminGalleryPage from './pages/AdminGalleryPage.jsx';
 import AdminHomePage from './pages/AdminHomePage.jsx';
+import AdminInquiriesPage from './pages/AdminInquiriesPage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import AdminPaymentsPage from './pages/AdminPaymentsPage.jsx';
 import AdminQrPage from './pages/AdminQrPage.jsx';
 import AdminSponsorsPage from './pages/AdminSponsorsPage.jsx';
 import BookingPage from './pages/BookingPage.jsx';
+import ContactPage from './pages/ContactPage.jsx';
 import EventDetailPage from './pages/EventDetailPage.jsx';
 import GalleryPage from './pages/GalleryPage.jsx';
 import HomePage from './pages/HomePage.jsx';
@@ -32,6 +35,7 @@ export default function App() {
           <Route path="/events/:id/book" element={<BookingPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/sponsors" element={<SponsorsPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route element={<ProtectedAdminRoute />}>
             <Route path="/admin" element={<AdminHomePage />} />
@@ -41,6 +45,7 @@ export default function App() {
             <Route path="/admin/qr" element={<AdminQrPage />} />
             <Route path="/admin/gallery" element={<AdminGalleryPage />} />
             <Route path="/admin/sponsors" element={<AdminSponsorsPage />} />
+            <Route path="/admin/inquiries" element={<AdminInquiriesPage />} />
           </Route>
           <Route path="/status" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
