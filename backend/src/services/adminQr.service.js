@@ -4,7 +4,6 @@ import { notFoundError } from '../utils/errors.js';
 const QR_FIELDS = `
   q.id,
   q.booking_id,
-  q.qr_identifier,
   q.verification_status,
   q.verified_at,
   q.used_at,
