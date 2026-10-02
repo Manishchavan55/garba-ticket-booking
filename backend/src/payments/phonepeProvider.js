@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import { PaymentProviderError } from './paymentProvider.js';
 
 const SANDBOX_AUTH_URL = 'https://api-preprod.phonepe.com/apis/pg-sandbox/v1/oauth/token';
@@ -52,7 +53,7 @@ const timingSafeEqualStrings = (left, right) => {
   return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 };
 
-export const createPhonePePaymentProvider = (options, fetchImpl = fetch) => {
+export const createPhonePePaymentProvider = (options, fetchImpl = globalThis.fetch) => {
   const environment = normalizeEnvironment(options.environment);
   if (!['SANDBOX', 'PRODUCTION'].includes(environment)) {
     throw new PaymentProviderError('PhonePe environment must be SANDBOX or PRODUCTION', 'PHONEPE_ENVIRONMENT_INVALID', 500);
@@ -89,7 +90,7 @@ export const createPhonePePaymentProvider = (options, fetchImpl = fetch) => {
       response = await fetchImpl(authUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
+        body: new globalThis.URLSearchParams({
           client_id: clientId,
           client_version: String(clientVersion),
           client_secret: clientSecret,
