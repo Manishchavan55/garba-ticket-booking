@@ -22,6 +22,7 @@ import AdminSponsorsPage from './pages/AdminSponsorsPage.jsx';
 import BookingPage from './pages/BookingPage.jsx';
 import ContactPage from './pages/ContactPage.jsx';
 import EventDetailPage from './pages/EventDetailPage.jsx';
+import EventsPage from './pages/EventsPage.jsx';
 import GalleryPage from './pages/GalleryPage.jsx';
 import HomePage from './pages/HomePage.jsx';
 import PaymentResultPage from './pages/PaymentResultPage.jsx';
@@ -33,6 +34,7 @@ export default function App() {
       <AdminAuthProvider>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/events" element={<EventsPage />} />
           <Route path="/events/:id" element={<EventDetailPage />} />
           <Route path="/events/:id/book" element={<BookingPage />} />
           <Route path="/payment/result" element={<PaymentResultPage />} />
