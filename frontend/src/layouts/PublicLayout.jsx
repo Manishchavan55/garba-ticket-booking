@@ -1,4 +1,11 @@
-import { Link } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
+
+const navItems = [
+  ['/', 'Events'],
+  ['/gallery', 'Gallery'],
+  ['/sponsors', 'Sponsors'],
+  ['/contact', 'Contact'],
+];
 
 export default function PublicLayout({ children }) {
   return (
@@ -8,16 +15,22 @@ export default function PublicLayout({ children }) {
           KESARIYA <span>Dandiya Nights</span>
         </Link>
         <nav aria-label="Primary navigation">
-          <Link to="/">Events</Link>
-          <Link to="/gallery">Gallery</Link>
-          <Link to="/sponsors">Sponsors</Link>
-          <Link to="/contact">Contact</Link>
+          {navItems.map(([to, label]) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) => (isActive ? 'is-active' : undefined)}
+            >
+              {label}
+            </NavLink>
+          ))}
         </nav>
       </header>
       {children}
       <footer className="site-footer">
-        <p>KESARIYA Dandiya Nights</p>
-        <p>Public event information • Booking will be available in a later phase</p>
+        <p><strong>KESARIYA Dandiya Nights</strong></p>
+        <p>Celebrate together • Dance with energy • Book with confidence</p>
       </footer>
     </div>
   );
