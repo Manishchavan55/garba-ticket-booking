@@ -2,96 +2,79 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getEvents, getTicketCategories } from '../api/events.js';
 import StatusMessage from '../components/StatusMessage.jsx';
-import TicketCategoryCard from '../components/TicketCategoryCard.jsx';
 import PublicLayout from '../layouts/PublicLayout.jsx';
 
-const formatDate = (value) => new Intl.DateTimeFormat('en-IN', {
-  dateStyle: 'full',
-}).format(new Date(`${value}T00:00:00`));
+const EVENT_IMAGES = [
+  'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=1400&q=90',
+  'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?auto=format&fit=crop&w=1200&q=90',
+  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=90',
+];
 
+const formatDate = (value) => new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${value}T00:00:00`));
 const formatTime = (value) => value?.slice(0, 5) ?? '';
+const formatPrice = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value));
 
 export default function HomePage() {
   const [events, setEvents] = useState([]);
   const [status, setStatus] = useState('loading');
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    document.title = 'KESARIYA Dandiya Nights';
-    let meta = document.querySelector('meta[name="description"]');
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.name = 'description';
-      document.head.appendChild(meta);
-    }
-    meta.content = 'Public event information and ticket categories for KESARIYA Dandiya Nights.';
-  }, []);
-
-  useEffect(() => {
-    getEvents()
-      .then((data) => {
-        setEvents(data);
-        setStatus('success');
-      })
-      .catch(() => {
-        setError('We could not load the event information right now. Please try again later.');
-        setStatus('error');
-      });
+    document.title = 'Kesariya Garba Nights';
+    getEvents().then((data) => { setEvents(data); setStatus('success'); }).catch(() => setStatus('error'));
   }, []);
 
   return (
     <PublicLayout>
       <main>
-        <section className="hero" aria-labelledby="home-title">
-          <div className="hero__content">
-            <p className="eyebrow">Celebrate • Dance • Dandiya</p>
-            <h1 id="home-title">KESARIYA Dandiya Nights</h1>
-            <p className="hero__intro">Discover the event, venue details, guidelines, and available ticket categories.</p>
+        <section className="home-hero">
+          <div className="home-hero__image" aria-hidden="true" />
+          <div className="home-hero__content">
+            <p className="eyebrow">Celebrate • Dance • Belong</p>
+            <h1>Feel the Rhythm<br /><span>of Traditions</span></h1>
+            <p>Join us for the most vibrant Garba nights in your city.<br />Music • Dance • Culture • Togetherness</p>
+            <Link className="button button--hero" to="/events">View Events <span aria-hidden="true">→</span></Link>
           </div>
         </section>
 
-        <section className="content-section" aria-labelledby="events-title">
-          <div className="section-heading">
-            <p className="eyebrow">Event information</p>
-            <h2 id="events-title">Upcoming event</h2>
+        <section className="feature-strip" aria-label="Event highlights">
+          <div><span>♫</span><strong>Live DJ & Orchestra</strong></div>
+          <div><span>♡</span><strong>Safe & Secure Venue</strong></div>
+          <div><span>✣</span><strong>Delicious Food Stalls</strong></div>
+          <div><span>★</span><strong>Exciting Prizes</strong></div>
+        </section>
+
+        <section className="home-section" aria-labelledby="upcoming-title">
+          <div className="section-heading-row">
+            <div><p className="eyebrow">Find your night</p><h2 id="upcoming-title">Upcoming Garba Events</h2></div>
+            <Link className="section-link" to="/events">View All →</Link>
           </div>
 
-          {status === 'loading' && <StatusMessage title="Loading event" message="Fetching the latest public event information." />}
-          {status === 'error' && <StatusMessage title="Event unavailable" message={error} tone="error" />}
+          {status === 'loading' && <StatusMessage title="Loading events" message="Finding the latest Garba nights." />}
+          {status === 'error' && <StatusMessage title="Events unavailable" message="We could not load events right now. Please try again later." tone="error" />}
           {status === 'success' && events.length === 0 && <StatusMessage title="No event published" message="There is no public event available yet." />}
-
           {status === 'success' && events.length > 0 && (
-            <div className="event-list">
-              {events.map((event) => (
-                <article className="event-card" key={event.id}>
-                  <div>
-                    <p className="eyebrow">{formatDate(event.event_date)}</p>
+            <div className="home-event-grid">
+              {events.slice(0, 3).map((event, index) => (
+                <article className="mini-event-card" key={event.id}>
+                  <img src={EVENT_IMAGES[index % EVENT_IMAGES.length]} alt="Garba night atmosphere" />
+                  <div className="mini-event-card__body">
                     <h3>{event.name}</h3>
-                    <p>{event.venue}</p>
-                    <p>{formatTime(event.start_time)}{event.end_time ? ` – ${formatTime(event.end_time)}` : ''}</p>
+                    <p>◷ {formatDate(event.event_date)} &nbsp;⌖ {event.city || event.venue}</p>
+                    <strong>{formatPrice(event.starting_price ?? event.price ?? 299)} onwards</strong>
+                    <Link to={`/events/${event.id}`}>View Details</Link>
                   </div>
-                  <Link className="button" to={`/events/${event.id}`}>View event</Link>
                 </article>
               ))}
             </div>
           )}
         </section>
 
-        <section className="content-section content-section--accent" aria-labelledby="experience-title">
-          <p className="eyebrow">Your event experience</p>
-          <h2 id="experience-title">Plan your night before you arrive.</h2>
-          <p>Explore event details and ticket availability now. The ticket booking flow will be introduced separately.</p>
+        <section className="home-story">
+          <div><p className="eyebrow">The Kesariya experience</p><h2>More than a ticket. It's your night to remember.</h2></div>
+          <p>From the first beat to the final circle, every detail is designed around music, movement, community and the colours of Navratri.</p>
         </section>
 
-        {status === 'success' && events[0] && (
-          <section className="content-section" aria-labelledby="tickets-preview-title">
-            <div className="section-heading">
-              <p className="eyebrow">Tickets</p>
-              <h2 id="tickets-preview-title">Available categories</h2>
-            </div>
-            <TicketPreview eventId={events[0].id} />
-          </section>
-        )}
+        {events[0] && <TicketPreview eventId={events[0].id} />}
       </main>
     </PublicLayout>
   );
@@ -99,24 +82,14 @@ export default function HomePage() {
 
 function TicketPreview({ eventId }) {
   const [categories, setCategories] = useState([]);
-  const [status, setStatus] = useState('loading');
-
-  useEffect(() => {
-    getTicketCategories(eventId)
-      .then((data) => {
-        setCategories(data);
-        setStatus('success');
-      })
-      .catch(() => setStatus('error'));
-  }, [eventId]);
-
-  if (status === 'loading') return <StatusMessage title="Loading tickets" message="Fetching available ticket categories." />;
-  if (status === 'error') return <StatusMessage title="Tickets unavailable" message="Ticket information could not be loaded right now." tone="error" />;
-  if (categories.length === 0) return <StatusMessage title="No ticket categories" message="Ticket categories have not been published yet." />;
-
+  useEffect(() => { getTicketCategories(eventId).then(setCategories).catch(() => setCategories([])); }, [eventId]);
+  if (!categories.length) return null;
   return (
-    <div className="ticket-grid">
-      {categories.map((category) => <TicketCategoryCard category={category} key={`${category.name}-${category.price}`} />)}
-    </div>
+    <section className="home-section home-section--tickets" aria-labelledby="ticket-preview-title">
+      <div className="section-heading-row"><div><p className="eyebrow">Choose your entry</p><h2 id="ticket-preview-title">Tickets from {formatPrice(Math.min(...categories.map((item) => Number(item.price))))}</h2></div></div>
+      <div className="ticket-preview-row">
+        {categories.slice(0, 3).map((category) => <div className="ticket-preview" key={category.id}><span>{category.name}</span><strong>{formatPrice(category.price)}</strong></div>)}
+      </div>
+    </section>
   );
 }
