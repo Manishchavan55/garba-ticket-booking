@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './styles/global.css';
 import './styles/kesariya.css';
+import './styles/kesariya-extra.css';
 import './styles/adminDashboard.css';
 import './styles/adminEvents.css';
 import './styles/adminBookings.css';
