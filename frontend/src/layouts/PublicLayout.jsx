@@ -3,7 +3,7 @@ import { NavLink, Link } from 'react-router-dom';
 const navItems = [
   ['/', 'Home'],
   ['/events', 'Events'],
-  ['/gallery', 'About'],
+  ['/about', 'About'],
   ['/contact', 'Contact'],
 ];
 
