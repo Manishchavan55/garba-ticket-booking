@@ -1,85 +1,14 @@
-.sponsor-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.sponsor-card,
-.sponsor-admin-row {
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  padding: 1rem;
-  background: #fff;
-}
-
-.sponsor-card {
-  min-height: 140px;
-  display: grid;
-  place-items: center;
-  text-align: center;
-}
-
-.sponsor-card img {
-  max-width: 100%;
-  max-height: 90px;
-  object-fit: contain;
-}
-
-.sponsor-card h2 {
-  font-size: 1rem;
-  margin: 0;
-}
-
-.admin-sponsor-form {
-  display: grid;
-  gap: 1rem;
-  margin: 1.5rem 0 2rem;
-}
-
-.admin-sponsor-form label {
-  display: grid;
-  gap: 0.4rem;
-  font-weight: 600;
-}
-
-.admin-sponsor-form input,
-.admin-sponsor-form textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.7rem;
-  border: 1px solid #bbb;
-  border-radius: 8px;
-  font: inherit;
-}
-
-.sponsor-admin-list {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.sponsor-admin-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.sponsor-admin-row p {
-  margin: 0.3rem 0 0;
-}
-
-.sponsor-url {
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 640px) {
-  .sponsor-admin-row {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .sponsor-admin-row .form-actions {
-    width: 100%;
-  }
-}
+.sponsor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.sponsor-card, .sponsor-admin-row { border: 1px solid var(--line); border-radius: 20px; padding: 1.15rem; background: var(--paper); box-shadow: var(--shadow); }
+.sponsor-card { min-height: 150px; display: grid; place-items: center; text-align: center; transition: transform .2s ease, box-shadow .2s ease; }
+.sponsor-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-strong); }
+.sponsor-card img { max-width: 100%; max-height: 90px; object-fit: contain; }
+.sponsor-card h2 { font-size: 1.2rem; margin: 0; }
+.admin-sponsor-form { display: grid; gap: 1rem; margin: 1.5rem 0 2rem; padding: 1.4rem; border: 1px solid var(--line); border-radius: 22px; background: var(--paper); box-shadow: var(--shadow); }
+.admin-sponsor-form label { display: grid; gap: .4rem; font-weight: 700; }
+.admin-sponsor-form input, .admin-sponsor-form textarea { width: 100%; box-sizing: border-box; padding: .72rem; border: 1px solid rgba(74,38,28,.2); border-radius: 10px; font: inherit; }
+.sponsor-admin-list { display: grid; gap: .75rem; }
+.sponsor-admin-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.sponsor-admin-row p { margin: .3rem 0 0; }
+.sponsor-url { overflow-wrap: anywhere; color: var(--muted); }
+@media (max-width: 640px) { .sponsor-admin-row { align-items: flex-start; flex-direction: column; } .sponsor-admin-row .form-actions { width: 100%; } }
