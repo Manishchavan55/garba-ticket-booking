@@ -11,6 +11,7 @@ import './styles/sponsors.css';
 import './styles/contact.css';
 import { AdminAuthProvider } from './auth/AdminAuthContext.jsx';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute.jsx';
+import AboutPage from './pages/AboutPage.jsx';
 import AdminBookingsPage from './pages/AdminBookingsPage.jsx';
 import AdminEventsPage from './pages/AdminEventsPage.jsx';
 import AdminGalleryPage from './pages/AdminGalleryPage.jsx';
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/events/:id" element={<EventDetailPage />} />
           <Route path="/events/:id/book" element={<BookingPage />} />
           <Route path="/payment/result" element={<PaymentResultPage />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/sponsors" element={<SponsorsPage />} />
           <Route path="/contact" element={<ContactPage />} />
